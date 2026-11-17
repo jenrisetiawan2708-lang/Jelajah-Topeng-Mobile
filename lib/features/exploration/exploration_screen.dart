@@ -1,12 +1,14 @@
 import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/dark_button.dart';
 import '../../shared/widgets/gradient_background.dart';
 import '../education/education_data.dart';
 import '../education/materi_screen.dart';
-import '../game/game_map_screen.dart';
+import '../progress/progress_screen.dart';
 import '../profile/profile_screen.dart';
 
 class _Spot {
@@ -249,9 +251,9 @@ class _ExplorationScreenState extends State<ExplorationScreen>
           ),
           // Tombol Progres -> peta game Jejak Sang Panji
           GestureDetector(
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const GameMapScreen()),
-            ),
+            onTap: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const ProgressScreen())),
             child: Container(
               height: 52,
               padding: const EdgeInsets.symmetric(horizontal: 22),
@@ -272,9 +274,8 @@ class _ExplorationScreenState extends State<ExplorationScreen>
           const SizedBox(width: 8),
           _circle(
             Icons.person_outline,
-            () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ProfileScreen()),
-            ),
+            () => Navigator.of(context)
+                .push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
           ),
         ],
       ),
@@ -344,7 +345,10 @@ class _ExplorationScreenState extends State<ExplorationScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Sesi Kunjungan', style: GoogleFonts.plusJakartaSans(fontSize: 15)),
+          Text(
+            'Sesi Kunjungan',
+            style: GoogleFonts.plusJakartaSans(fontSize: 15),
+          ),
           Text(
             'Senin–Jumat, 08.00 WIB s.d. 15.00 WIB',
             style: GoogleFonts.plusJakartaSans(
@@ -366,9 +370,8 @@ class _IslandImage extends StatelessWidget {
     return Image.asset(
       'assets/images/island.png',
       fit: BoxFit.contain,
-      errorBuilder: (_, _, _) => SizedBox.expand(
-        child: CustomPaint(painter: _IslandPainter()),
-      ),
+      errorBuilder: (_, _, _) =>
+          SizedBox.expand(child: CustomPaint(painter: _IslandPainter())),
     );
   }
 }
@@ -383,14 +386,35 @@ class _IslandPainter extends CustomPainter {
     }
 
     // Batu (4 bidang warna)
-    facet(const [Offset(3, 62), Offset(20, 62), Offset(160, 398), Offset(144, 408)],
-        const Color(0xFFB07F5B));
-    facet(const [Offset(20, 62), Offset(194, 62), Offset(194, 330), Offset(176, 372), Offset(160, 398)],
-        const Color(0xFF9B6D4B));
-    facet(const [Offset(194, 62), Offset(276, 62), Offset(262, 250), Offset(245, 270), Offset(235, 258), Offset(205, 315), Offset(194, 330)],
-        const Color(0xFF7A5238));
-    facet(const [Offset(276, 62), Offset(357, 62), Offset(296, 288), Offset(275, 270), Offset(262, 250)],
-        const Color(0xFF5C3E2A));
+    facet(const [
+      Offset(3, 62),
+      Offset(20, 62),
+      Offset(160, 398),
+      Offset(144, 408),
+    ], const Color(0xFFB07F5B));
+    facet(const [
+      Offset(20, 62),
+      Offset(194, 62),
+      Offset(194, 330),
+      Offset(176, 372),
+      Offset(160, 398),
+    ], const Color(0xFF9B6D4B));
+    facet(const [
+      Offset(194, 62),
+      Offset(276, 62),
+      Offset(262, 250),
+      Offset(245, 270),
+      Offset(235, 258),
+      Offset(205, 315),
+      Offset(194, 330),
+    ], const Color(0xFF7A5238));
+    facet(const [
+      Offset(276, 62),
+      Offset(357, 62),
+      Offset(296, 288),
+      Offset(275, 270),
+      Offset(262, 250),
+    ], const Color(0xFF5C3E2A));
 
     // Rumput: sisi bawah tipis + permukaan + dua bercak
     canvas.drawOval(
