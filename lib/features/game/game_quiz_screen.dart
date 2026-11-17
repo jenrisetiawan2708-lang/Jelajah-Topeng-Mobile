@@ -1,6 +1,7 @@
-import 'dart:async';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/dark_button.dart';
 import '../../shared/widgets/dark_card.dart';
@@ -21,53 +22,54 @@ class _GameQuizScreenState extends State<GameQuizScreen> {
   static const _duration = 30; // detik
   static const _red = Color(0xFFD32F2F);
 
+  final AudioPlayer _player = AudioPlayer();
+
   int? _selected;
   bool _wrong = false;
-
-  // Pemutar audio (simulasi). TODO: ganti dengan pemutar audio sungguhan
-  // (paket audioplayers + file audio kisah di assets).
-  int _pos = 0;
   bool _playing = false;
-  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _player.onPlayerComplete.listen((_) {
+      if (mounted) setState(() => _playing = false);
+    });
+  }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _player.dispose();
     super.dispose();
   }
 
-  void _togglePlay() {
-    if (_playing) {
-      _timer?.cancel();
-      setState(() => _playing = false);
-      return;
-    }
-    if (_pos >= _duration) _pos = 0;
-    setState(() => _playing = true);
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (_pos >= _duration - 1) {
-        t.cancel();
-        setState(() {
-          _pos = _duration;
-          _playing = false;
-        });
+  Future<void> _toggleAudio() async {
+    try {
+      if (_playing) {
+        await _player.pause();
+        if (mounted) setState(() => _playing = false);
       } else {
-        setState(() => _pos++);
+        await _player.play(AssetSource('audio/kisah_mbah_reni.mp3'));
+        if (mounted) setState(() => _playing = true);
       }
-    });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Audio belum bisa diputar.')),
+      );
+    }
   }
 
   String _fmt(int s) => '${s ~/ 60}:${(s % 60).toString().padLeft(2, '0')}';
 
   void _select(int i) => setState(() {
-        _selected = i;
-        _wrong = false;
-      });
+    _selected = i;
+    _wrong = false;
+  });
 
   void _check() {
     if (_selected == null) return;
     if (_selected == _correct) {
-      _timer?.cancel();
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => const GameClueScreen(
@@ -130,8 +132,11 @@ class _GameQuizScreenState extends State<GameQuizScreen> {
   }
 
   Widget _buildAudioCard() {
-    final small = GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 13);
-    final fraction = _pos / _duration;
+    final small = GoogleFonts.plusJakartaSans(
+      color: Colors.white,
+      fontSize: 13,
+    );
+
     return DarkCard(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
       child: Column(
@@ -149,7 +154,7 @@ class _GameQuizScreenState extends State<GameQuizScreen> {
           Row(
             children: [
               GestureDetector(
-                onTap: _togglePlay,
+                onTap: _toggleAudio,
                 child: Container(
                   width: 62,
                   height: 62,
@@ -158,7 +163,7 @@ class _GameQuizScreenState extends State<GameQuizScreen> {
                     color: AppColors.edge,
                   ),
                   child: Icon(
-                    _playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    _playing ? Icons.pause : Icons.play_arrow,
                     size: 40,
                     color: Colors.white,
                   ),
@@ -187,51 +192,18 @@ class _GameQuizScreenState extends State<GameQuizScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, c) {
-              const knob = 12.0;
-              final left = (c.maxWidth - knob) * fraction;
-              return SizedBox(
-                height: 14,
-                child: Stack(
-                  alignment: Alignment.centerLeft,
-                  children: [
-                    Container(
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.35),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    Container(
-                      width: c.maxWidth * fraction,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    Positioned(
-                      left: left,
-                      child: Container(
-                        width: knob,
-                        height: knob,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppColors.edge,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
+          Container(
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.35),
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
           const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(_fmt(_pos), style: small),
+              Text(_fmt(0), style: small),
               Text(_fmt(_duration), style: small),
             ],
           ),
@@ -277,6 +249,7 @@ class _GameQuizScreenState extends State<GameQuizScreen> {
   Widget _buildOption(int i) {
     final selected = _selected == i;
     final bad = _wrong && selected;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: GestureDetector(
@@ -315,8 +288,11 @@ class _GameQuizScreenState extends State<GameQuizScreen> {
               if (bad)
                 const Icon(Icons.cancel, color: _red, size: 26)
               else if (selected)
-                const Icon(Icons.radio_button_checked,
-                    color: AppColors.primary, size: 24),
+                const Icon(
+                  Icons.radio_button_checked,
+                  color: AppColors.primary,
+                  size: 24,
+                ),
             ],
           ),
         ),
