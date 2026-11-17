@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/asset_image_box.dart';
 import '../../shared/widgets/circle_back_button.dart';
@@ -8,6 +9,7 @@ import '../../shared/widgets/gradient_background.dart';
 import '../chat/chat_screen.dart';
 import '../auth/login_screen.dart';
 import '../notification/notification_screen.dart';
+import '../faq/faq_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -60,11 +62,11 @@ class ProfileScreen extends StatelessWidget {
                 const SizedBox(height: 28),
                 DarkButton(text: 'FaQ', onPressed: () {}),
                 const SizedBox(height: 16),
-                                DarkButton(
+                DarkButton(
                   text: 'Tanya AI',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(builder: (_) => const ChatScreen()),
-                  ),
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (_) => const ChatScreen())),
                 ),
                 const SizedBox(height: 16),
                 DarkButton(
@@ -92,9 +94,8 @@ class ProfileScreen extends StatelessWidget {
   // Tombol notifikasi hijau tua 3D + angka badge merah -> halaman Notifikasi
   Widget _buildNotifButton(BuildContext context) {
     return GestureDetector(
-      onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => const NotificationScreen()),
-      ),
+      onTap: () => Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const NotificationScreen())),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
