@@ -6,10 +6,11 @@ import '../../shared/widgets/asset_image_box.dart';
 import '../../shared/widgets/circle_back_button.dart';
 import '../../shared/widgets/dark_button.dart';
 import '../../shared/widgets/gradient_background.dart';
-import '../chat/chat_screen.dart';
+import '../auth/auth_service.dart';
 import '../auth/login_screen.dart';
-import '../notification/notification_screen.dart';
+import '../chat/chat_screen.dart';
 import '../faq/faq_screen.dart';
+import '../notification/notification_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -49,7 +50,9 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 Text(
-                  'Rangga Pratama',
+                  AuthService.current?.name.isNotEmpty == true
+                      ? AuthService.current!.name
+                      : 'Rangga Pratama',
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 30,
                     fontWeight: FontWeight.w800,
@@ -60,7 +63,12 @@ class ProfileScreen extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(fontSize: 20),
                 ),
                 const SizedBox(height: 28),
-                DarkButton(text: 'FaQ', onPressed: () {}),
+                DarkButton(
+                  text: 'FAQ',
+                  onPressed: () => Navigator.of(
+                    context,
+                  ).push(MaterialPageRoute(builder: (_) => const FaqScreen())),
+                ),
                 const SizedBox(height: 16),
                 DarkButton(
                   text: 'Tanya AI',
@@ -75,7 +83,9 @@ class ProfileScreen extends StatelessWidget {
                   height: 46,
                   fontSize: 16,
                   radius: 20,
-                  onPressed: () {
+                  onPressed: () async {
+                    await AuthService.logout();
+                    if (!context.mounted) return;
                     // Hapus semua halaman sebelumnya, kembali ke Login
                     Navigator.of(context).pushAndRemoveUntil(
                       MaterialPageRoute(builder: (_) => const LoginScreen()),

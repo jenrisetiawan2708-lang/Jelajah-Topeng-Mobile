@@ -1,19 +1,98 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
-import '../../shared/widgets/app_text_field.dart';
 import '../../shared/widgets/circle_back_button.dart';
 import '../../shared/widgets/gradient_background.dart';
 import '../../shared/widgets/gradient_button.dart';
 import '../home/home_screen.dart';
+import 'auth_field.dart';
+import 'auth_service.dart';
 import 'register_screen.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
-  void _goHome(BuildContext context) {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const HomeScreen()),
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _email = TextEditingController();
+  final _password = TextEditingController();
+
+  bool _loading = false;
+  String? _error;
+  String? _emailError;
+  String? _passError;
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  bool _validate() {
+    final email = _email.text.trim();
+    String? emailError;
+    String? passwordError;
+
+    if (email.isEmpty) {
+      emailError = 'Email wajib diisi';
+    } else if (!RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(email)) {
+      emailError = 'Format email tidak valid';
+    }
+
+    if (_password.text.isEmpty) {
+      passwordError = 'Kata sandi wajib diisi';
+    }
+
+    setState(() {
+      _emailError = emailError;
+      _passError = passwordError;
+      _error = null;
+    });
+
+    return emailError == null && passwordError == null;
+  }
+
+  Future<void> _submit() async {
+    if (_loading || !_validate()) return;
+
+    setState(() => _loading = true);
+
+    try {
+      await AuthService.login(_email.text.trim(), _password.text);
+
+      if (!mounted) return;
+
+      Navigator.of(
+        context,
+      ).pushReplacement(MaterialPageRoute(builder: (_) => const HomeScreen()));
+    } on ApiException catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+        _error = e.message;
+        _emailError = e.fieldErrors['email'];
+        _passError = e.fieldErrors['password'];
+      });
+    } catch (_) {
+      if (!mounted) return;
+
+      setState(() {
+        _loading = false;
+        _error = 'Terjadi kesalahan. Coba lagi.';
+      });
+    }
+  }
+
+  void _googleSoon() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Login Google belum tersedia di aplikasi.')),
     );
   }
 
@@ -38,7 +117,9 @@ class LoginScreen extends StatelessWidget {
                   'Selamat Datang!',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.plusJakartaSans(
-                      fontSize: 34, fontWeight: FontWeight.w800),
+                    fontSize: 34,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text.rich(
@@ -57,17 +138,28 @@ class LoginScreen extends StatelessWidget {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                const SizedBox(height: 40),
-                const AppTextField(
+                const SizedBox(height: 32),
+                if (_error != null) ...[
+                  _ErrorBanner(message: _error!),
+                  const SizedBox(height: 16),
+                ],
+                AuthField(
                   label: 'Email',
                   hint: 'Masukan email anda',
+                  controller: _email,
                   keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  errorText: _emailError,
                 ),
-                const SizedBox(height: 24),
-                const AppTextField(
+                const SizedBox(height: 20),
+                AuthField(
                   label: 'Password',
                   hint: 'Masukan password',
+                  controller: _password,
                   isPassword: true,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _submit(),
+                  errorText: _passError,
                 ),
                 Align(
                   alignment: Alignment.centerRight,
@@ -83,10 +175,10 @@ class LoginScreen extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 40),
+                const SizedBox(height: 24),
                 GradientButton(
-                  text: 'Login',
-                  onPressed: () => _goHome(context),
+                  text: _loading ? 'Memproses...' : 'Login',
+                  onPressed: _loading ? () {} : _submit,
                 ),
                 const SizedBox(height: 12),
                 Center(
@@ -100,17 +192,24 @@ class LoginScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton(
-                  onPressed: () => _goHome(context),
+                  onPressed: _googleSoon,
                   style: OutlinedButton.styleFrom(
                     backgroundColor: Colors.white,
                     minimumSize: const Size.fromHeight(56),
-                    side: const BorderSide(color: AppColors.primary, width: 1.5),
+                    side: const BorderSide(
+                      color: AppColors.primary,
+                      width: 1.5,
+                    ),
                     shape: const StadiumBorder(),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.g_mobiledata, size: 36, color: Colors.red),
+                      const Icon(
+                        Icons.g_mobiledata,
+                        size: 36,
+                        color: Colors.red,
+                      ),
                       const SizedBox(width: 8),
                       Text(
                         'Continue with Google',
@@ -138,7 +237,8 @@ class LoginScreen extends StatelessWidget {
                     GestureDetector(
                       onTap: () => Navigator.of(context).push(
                         MaterialPageRoute(
-                            builder: (_) => const RegisterScreen()),
+                          builder: (_) => const RegisterScreen(),
+                        ),
                       ),
                       child: Text(
                         'Buat Akun',
@@ -154,6 +254,31 @@ class LoginScreen extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFDECEA),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFD32F2F)),
+      ),
+      child: Text(
+        message,
+        style: GoogleFonts.plusJakartaSans(
+          fontSize: 13,
+          color: const Color(0xFFB71C1C),
         ),
       ),
     );
