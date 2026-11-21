@@ -1,26 +1,29 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../core/theme/app_colors.dart';
-import '../../shared/widgets/dark_button.dart';
-import '../../shared/widgets/gradient_background.dart';
+import '../../core/theme/app_text.dart';
 import '../education/education_data.dart';
 import '../education/materi_screen.dart';
-import '../progress/progress_screen.dart';
 import '../profile/profile_screen.dart';
+import '../progress/progress_screen.dart';
 
-class _Spot {
-  const _Spot(this.name, this.x, this.y, this.labelOff, this.materiIndex);
+/// Satu pulau/lokasi di peta.
+class _Place {
+  const _Place(this.name, this.slot, this.materiIndex);
+  final String name;
 
-  final String name; // nama lokasi (2 baris)
-  final double x; // posisi kiri-atas pulau (ukuran desain 990 x 2150)
-  final double y;
-  final double labelOff; // jarak baris terakhir label ke puncak pulau
-  final int? materiIndex; // indeks di materiList (null = belum ada materi)
+  /// Pusat bagian atas pulau (0..1) dari desain.
+  final Offset slot;
+
+  /// Index di materiList. null = belum ada materi (tombol disembunyikan).
+  final int? materiIndex;
 }
 
+/// Halaman "Eksplorasi Kampung Topeng": peta pulau melayang.
+///
+/// Tap pulau -> nama tempat muncul. Tap lagi -> panel info kunjungan dan
+/// tombol "Informasi Pembelajaran" (membuka halaman materi Education).
 class ExplorationScreen extends StatefulWidget {
   const ExplorationScreen({super.key});
 
@@ -29,119 +32,154 @@ class ExplorationScreen extends StatefulWidget {
 }
 
 class _ExplorationScreenState extends State<ExplorationScreen>
-    with SingleTickerProviderStateMixin {
-  static const _w = 357.0; // lebar pulau (ukuran desain)
-  static const _h = 410.0; // tinggi pulau
+    with TickerProviderStateMixin {
+  static const _groundAsset = 'assets/images/map_ground.png';
 
-  // Lokasi 1 - 5, dari bawah ke atas
-  static const _spots = [
-    _Spot('Makam\nMbah Reni', 322, 1676, 24, 0),
-    _Spot('Situs\nSumur Windu', 19, 1192, 16, 1),
-    _Spot('Mandala\nEmpu Purwa', 600, 893, 7, 2),
-    _Spot('Situs\nJoko Lolo', 48, 627, 8, 3),
-    _Spot('Rumah\nBudaya', 473, 377, 40, null),
+  static const _visitHours = 'Senin-Jumat, 08.00 WIB s.d. 15.00 WIB';
+
+  // Urutan: paling bawah -> paling atas.
+  static const _places = <_Place>[
+    _Place('Makam Mbah Reni', Offset(0.506, 0.805), 0),
+    _Place('Situs Sumur Windu', Offset(0.200, 0.580), 1),
+    _Place('Mandala Empu Purwa', Offset(0.788, 0.439), 2),
+    _Place('Situs Joko Lolo', Offset(0.229, 0.317), 3),
+    _Place('Rumah Budaya', Offset(0.659, 0.200), null),
   ];
 
-  // Irama melayang tiap pulau (kelipatan 1 atau 2 supaya putarannya mulus)
-  static const _mult = [1, 2, 1, 2, 1];
-  static const _phase = [0.0, 0.2, 0.4, 0.6, 0.8];
-
-  // Satu controller yang berputar terus = pulau melayang tanpa henti
+  late final AnimationController _enter = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1500),
+  )..forward();
   late final AnimationController _float = AnimationController(
     vsync: this,
-    duration: const Duration(seconds: 6),
+    duration: const Duration(seconds: 4),
   )..repeat();
 
   int? _selected;
-  int _lastSelected = 0; // supaya isi panel tidak hilang saat panel turun
+  bool _panelOpen = false;
 
   @override
   void dispose() {
+    _enter.dispose();
     _float.dispose();
     super.dispose();
   }
 
-  void _select(int i) {
+  void _onIslandTap(int k) {
     setState(() {
-      if (_selected == i) {
-        _selected = null;
+      if (_selected == k) {
+        _panelOpen = true; // tap kedua: tampilkan info kunjungan
       } else {
-        _selected = i;
-        _lastSelected = i;
+        _selected = k; // tap pertama: tampilkan nama
+        _panelOpen = false;
       }
     });
   }
 
-  void _deselect() {
-    if (_selected != null) setState(() => _selected = null);
+  void _clear() {
+    if (_selected == null) return;
+    setState(() {
+      _selected = null;
+      _panelOpen = false;
+    });
+  }
+
+  void _openMateri() {
+    final i = _selected == null ? null : _places[_selected!].materiIndex;
+    if (i == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => MateriScreen(materi: materiList[i])),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+
     return Scaffold(
-      body: GradientBackground(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFD2EEA4), Color(0xFFFBFDF8), Color(0xFFE0F5C0)],
+            stops: [0.0, 0.7, 1.0],
+          ),
+        ),
         child: LayoutBuilder(
           builder: (context, c) {
-            final s = math.min(c.maxWidth / 990, c.maxHeight / 2150);
+            final w = c.maxWidth;
+            final h = c.maxHeight;
+            final iw = math.min(w * 0.36, h * 0.165);
+            final ih = iw * 1.18;
+            final pts = [
+              for (final p in _places) Offset(p.slot.dx * w, p.slot.dy * h),
+            ];
+
             return Stack(
+              fit: StackFit.expand,
               children: [
-                // Rumput + pohon di bawah
+                // Rumput + pohon.
                 Positioned(
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  child: Image.asset(
-                    'assets/images/map_ground.png',
-                    fit: BoxFit.fitWidth,
-                    errorBuilder: (_, _, _) => Container(
-                      height: 330 * s,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF8BC34A),
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.elliptical(c.maxWidth, 120 * s),
-                        ),
-                      ),
+                  child: IgnorePointer(
+                    child: Image.asset(
+                      _groundAsset,
+                      fit: BoxFit.fitWidth,
+                      alignment: Alignment.bottomCenter,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
                     ),
                   ),
                 ),
-                // Peta: garis putus-putus + 5 pulau
-                Align(
-                  alignment: Alignment.bottomCenter,
-                  child: SizedBox(
-                    width: 990 * s,
-                    height: 2150 * s,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        // ketuk area kosong = tutup pilihan
-                        Positioned.fill(
-                          child: GestureDetector(
-                            behavior: HitTestBehavior.translucent,
-                            onTap: _deselect,
-                          ),
-                        ),
-                        CustomPaint(
-                          size: Size(990 * s, 2150 * s),
-                          painter: _DashPainter(s),
-                        ),
-                        for (var i = 0; i < _spots.length; i++)
-                          _buildIsland(s, i),
-                      ],
+
+                // Tap area kosong: tutup nama/panel.
+                Positioned.fill(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _clear,
+                  ),
+                ),
+
+                // Jalur putus-putus.
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(painter: _DashedPathPainter(pts)),
+                  ),
+                ),
+
+                // Pulau.
+                for (var k = 0; k < _places.length; k++)
+                  _buildIsland(k, pts[k], iw, ih),
+
+                // Nama tempat (hanya untuk pulau yang dipilih).
+                for (var k = 0; k < _places.length; k++)
+                  _buildLabel(k, pts[k], iw, h),
+
+                // Header.
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: _buildHeader(mq.padding.top),
+                ),
+
+                // Panel info kunjungan.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: IgnorePointer(
+                    ignoring: !_panelOpen,
+                    child: AnimatedSlide(
+                      offset: _panelOpen ? Offset.zero : const Offset(0, 1.1),
+                      duration: const Duration(milliseconds: 320),
+                      curve: Curves.easeOutCubic,
+                      child: _buildPanel(mq.padding.bottom),
                     ),
                   ),
                 ),
-                // Header
-                SafeArea(
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 16),
-                      child: _buildHeader(context),
-                    ),
-                  ),
-                ),
-                // Panel bawah
-                _buildSheet(context),
               ],
             );
           },
@@ -150,292 +188,339 @@ class _ExplorationScreenState extends State<ExplorationScreen>
     );
   }
 
-  Widget _buildIsland(double s, int i) {
-    final spot = _spots[i];
-    final selected = _selected == i;
+  // ------------------------------------------------------------- pulau
+  Widget _buildIsland(int k, Offset center, double iw, double ih) {
+    final begin = (0.05 + k * 0.12).clamp(0.0, 0.65);
+    final a = CurvedAnimation(
+      parent: _enter,
+      curve: Interval(begin, begin + 0.35, curve: Curves.easeOutBack),
+    );
+    final selected = _selected == k;
 
     return Positioned(
-      left: spot.x * s,
-      top: spot.y * s,
-      width: _w * s,
-      height: _h * s,
+      left: center.dx - iw / 2,
+      top: center.dy - iw * 0.155,
+      width: iw,
+      height: ih,
       child: AnimatedBuilder(
-        animation: _float,
+        animation: Listenable.merge([_enter, _float]),
         builder: (_, child) {
-          final p = 2 * math.pi * (_float.value * _mult[i] + _phase[i]);
-          return Transform.translate(
-            offset: Offset(math.cos(p) * 6 * s, math.sin(p) * 16 * s),
-            child: child,
+          final dy = math.sin((_float.value + k * 0.2) * 2 * math.pi) * 5;
+          final s = a.value.clamp(0.0, 1.2);
+          return Opacity(
+            opacity: a.value.clamp(0.0, 1.0),
+            child: Transform.translate(
+              offset: Offset(0, dy + (1 - a.value.clamp(0.0, 1.0)) * 40),
+              child: Transform.scale(
+                scale: 0.6 + 0.4 * s,
+                alignment: Alignment.topCenter,
+                child: child,
+              ),
+            ),
           );
         },
         child: GestureDetector(
-          onTap: () => _select(i),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned.fill(child: _IslandImage()),
-              // Label ikut melayang bersama pulau
-              if (selected)
-                Positioned(
-                  left: (_w / 2 - 200) * s,
-                  top: (spot.labelOff - 90) * s,
-                  width: 400 * s,
-                  child: Center(child: _buildLabel(spot.name, 52 * s, 9 * s)),
-                ),
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _onIslandTap(k),
+          child: AnimatedScale(
+            scale: selected ? 1.06 : 1.0,
+            alignment: Alignment.topCenter,
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOut,
+            child: CustomPaint(painter: const _IslandPainter()),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // -------------------------------------------------------------- nama
+  Widget _buildLabel(int k, Offset center, double iw, double h) {
+    final selected = _selected == k;
+    final lw = iw * 1.0;
+
+    const outline = <Shadow>[
+      Shadow(color: Colors.white, offset: Offset(1.5, 0)),
+      Shadow(color: Colors.white, offset: Offset(-1.5, 0)),
+      Shadow(color: Colors.white, offset: Offset(0, 1.5)),
+      Shadow(color: Colors.white, offset: Offset(0, -1.5)),
+      Shadow(color: Colors.white, offset: Offset(1.2, 1.2)),
+      Shadow(color: Colors.white, offset: Offset(-1.2, 1.2)),
+      Shadow(color: Colors.white, offset: Offset(1.2, -1.2)),
+      Shadow(color: Colors.white, offset: Offset(-1.2, -1.2)),
+    ];
+
+    return Positioned(
+      left: center.dx - lw / 2,
+      width: lw,
+      bottom: h - (center.dy + iw * 0.04),
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: _float,
+          builder: (_, child) {
+            final dy = math.sin((_float.value + k * 0.2) * 2 * math.pi) * 5;
+            return Transform.translate(offset: Offset(0, dy), child: child);
+          },
+          child: AnimatedOpacity(
+            opacity: selected ? 1 : 0,
+            duration: const Duration(milliseconds: 220),
+            child: AnimatedScale(
+              scale: selected ? 1 : 0.85,
+              alignment: Alignment.bottomCenter,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOutBack,
+              child: Text(
+                _places[k].name,
+                textAlign: TextAlign.center,
+                style: AppText.style(
+                  17,
+                  weight: FontWeight.w800,
+                  color: const Color(0xFF5BAA55),
+                  height: 1.05,
+                ).copyWith(shadows: outline),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------ header
+  Widget _buildHeader(double topInset) {
+    Widget chip({required Widget child, VoidCallback? onTap, double? size}) {
+      return GestureDetector(
+        onTap: onTap,
+        child: Container(
+          width: size,
+          height: size ?? 56,
+          padding: size == null
+              ? const EdgeInsets.symmetric(horizontal: 22)
+              : null,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.62),
+            shape: size != null ? BoxShape.circle : BoxShape.rectangle,
+            borderRadius: size == null ? BorderRadius.circular(30) : null,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.12),
+                blurRadius: 14,
+                offset: const Offset(0, 5),
+              ),
             ],
           ),
+          child: child,
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  // Teks hijau dengan garis tepi putih
-  Widget _buildLabel(String text, double size, double stroke) {
-    final base = GoogleFonts.plusJakartaSans(
-      fontSize: size,
-      fontWeight: FontWeight.w800,
-      height: 1.15,
-    );
-    return Stack(
-      children: [
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: base.copyWith(
-            foreground: Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = stroke
-              ..strokeJoin = StrokeJoin.round
-              ..color = Colors.white,
-          ),
-        ),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: base.copyWith(color: AppColors.primary),
-        ),
-      ],
-    );
-  }
-
-  Widget _circle(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 53,
-        height: 53,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: 0.6),
-        ),
-        child: Icon(icon, size: 30, color: Colors.black),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: EdgeInsets.fromLTRB(16, topInset + 12, 16, 0),
       child: Row(
         children: [
-          _circle(Icons.chevron_left, () => Navigator.maybePop(context)),
+          chip(
+            size: 56,
+            onTap: () => Navigator.of(context).maybePop(),
+            child: const Icon(
+              Icons.chevron_left_rounded,
+              size: 34,
+              color: Colors.black,
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               'Eksplorasi',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: 23,
-                fontWeight: FontWeight.w800,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AppText.style(
+                19,
+                weight: FontWeight.w700,
+                color: Colors.black,
               ),
             ),
           ),
-          // Tombol Progres -> peta game Jejak Sang Panji
-          GestureDetector(
+          chip(
             onTap: () => Navigator.of(
               context,
             ).push(MaterialPageRoute(builder: (_) => const ProgressScreen())),
-            child: Container(
-              height: 52,
-              padding: const EdgeInsets.symmetric(horizontal: 22),
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.6),
-                borderRadius: BorderRadius.circular(26),
-              ),
-              child: Text(
-                'Progres',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
-                ),
+            child: Text(
+              'Progres',
+              style: AppText.style(
+                17,
+                weight: FontWeight.w600,
+                color: Colors.black,
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          _circle(
-            Icons.person_outline,
-            () => Navigator.of(context)
+          const SizedBox(width: 10),
+          chip(
+            size: 56,
+            onTap: () => Navigator.of(context)
                 .push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
+            child: const Icon(
+              Icons.person_outline_rounded,
+              size: 30,
+              color: Colors.black,
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSheet(BuildContext context) {
-    final spot = _spots[_lastSelected];
-    final bottom = MediaQuery.of(context).padding.bottom;
+  // ------------------------------------------------------------- panel
+  Widget _buildPanel(double bottomInset) {
+    final hasMateri =
+        _selected != null && _places[_selected!].materiIndex != null;
 
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: AnimatedSlide(
-        offset: _selected != null ? Offset.zero : const Offset(0, 1.05),
-        duration: const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.fromLTRB(16, 26, 16, 24 + bottom),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFCFCFC),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(40)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 20,
-                offset: const Offset(0, -4),
-              ),
-            ],
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(18, 18, 18, bottomInset + 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.10),
+            blurRadius: 20,
+            offset: const Offset(0, -4),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildSessionCard(),
-              // Rumah Budaya belum punya materi: tombol tidak tampil
-              if (spot.materiIndex != null) ...[
-                const SizedBox(height: 10),
-                DarkButton(
-                  text: 'Informasi Pembelajaran',
-                  height: 62,
-                  fontSize: 20,
-                  radius: 31,
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          MateriScreen(materi: materiList[spot.materiIndex!]),
-                    ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFF66AA5A), width: 1.5),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Sesi Kunjungan',
+                  style: AppText.style(11, color: const Color(0xFF6B7A5C)),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _visitHours,
+                  style: AppText.style(
+                    14,
+                    weight: FontWeight.w700,
+                    color: Colors.black,
                   ),
                 ),
               ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSessionCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(18, 10, 18, 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(36),
-        border: Border.all(color: AppColors.primary, width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Sesi Kunjungan',
-            style: GoogleFonts.plusJakartaSans(fontSize: 15),
-          ),
-          Text(
-            'Senin–Jumat, 08.00 WIB s.d. 15.00 WIB',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
             ),
           ),
+          if (hasMateri) ...[
+            const SizedBox(height: 14),
+            GestureDetector(
+              onTap: _openMateri,
+              child: Container(
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFF42632D), Color(0xFF2E4A21)],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF2E4A21).withValues(alpha: 0.35),
+                      blurRadius: 12,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: Text(
+                  'Informasi Pembelajaran',
+                  style: AppText.style(
+                    16,
+                    weight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
-// Gambar pulau: pakai assets/images/island.png kalau ada,
-// kalau belum ada digambar lewat kode.
-class _IslandImage extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Image.asset(
-      'assets/images/island.png',
-      fit: BoxFit.contain,
-      errorBuilder: (_, _, _) =>
-          SizedBox.expand(child: CustomPaint(painter: _IslandPainter())),
-    );
-  }
-}
-
+/// Pulau melayang: tanah hijau di atas, batu cokelat meruncing di bawah.
 class _IslandPainter extends CustomPainter {
+  const _IslandPainter();
+
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.scale(size.width / 357, size.height / 410);
+    final w = size.width;
 
-    void facet(List<Offset> pts, Color color) {
-      canvas.drawPath(Path()..addPolygon(pts, true), Paint()..color = color);
-    }
+    final body = Path()
+      ..moveTo(0, .16 * w)
+      ..lineTo(w, .16 * w)
+      ..lineTo(.96 * w, .50 * w)
+      ..lineTo(.90 * w, .60 * w)
+      ..lineTo(.86 * w, .56 * w)
+      ..lineTo(.80 * w, .78 * w)
+      ..lineTo(.74 * w, .72 * w)
+      ..lineTo(.64 * w, .96 * w)
+      ..lineTo(.58 * w, .90 * w)
+      ..lineTo(.42 * w, 1.16 * w)
+      ..close();
 
-    // Batu (4 bidang warna)
-    facet(const [
-      Offset(3, 62),
-      Offset(20, 62),
-      Offset(160, 398),
-      Offset(144, 408),
-    ], const Color(0xFFB07F5B));
-    facet(const [
-      Offset(20, 62),
-      Offset(194, 62),
-      Offset(194, 330),
-      Offset(176, 372),
-      Offset(160, 398),
-    ], const Color(0xFF9B6D4B));
-    facet(const [
-      Offset(194, 62),
-      Offset(276, 62),
-      Offset(262, 250),
-      Offset(245, 270),
-      Offset(235, 258),
-      Offset(205, 315),
-      Offset(194, 330),
-    ], const Color(0xFF7A5238));
-    facet(const [
-      Offset(276, 62),
-      Offset(357, 62),
-      Offset(296, 288),
-      Offset(275, 270),
-      Offset(262, 250),
-    ], const Color(0xFF5C3E2A));
-
-    // Rumput: sisi bawah tipis + permukaan + dua bercak
-    canvas.drawOval(
-      const Rect.fromLTWH(0, 9, 357, 112),
-      Paint()..color = const Color(0xFF4E9029),
+    canvas.save();
+    canvas.clipPath(body);
+    canvas.drawPath(body, Paint()..color = const Color(0xFF9A7352));
+    canvas.drawPath(
+      Path()
+        ..moveTo(.48 * w, .1 * w)
+        ..lineTo(.80 * w, .1 * w)
+        ..lineTo(.64 * w, 1.2 * w)
+        ..lineTo(.40 * w, 1.2 * w)
+        ..close(),
+      Paint()..color = const Color(0xFF6E5239),
     );
-    const top = Rect.fromLTWH(0, 0, 357, 112);
-    canvas.drawOval(
-      top,
-      Paint()
-        ..shader = const LinearGradient(
-          colors: [Color(0xFF7CC443), Color(0xFF63AE34)],
-        ).createShader(top),
+    canvas.drawPath(
+      Path()
+        ..moveTo(.80 * w, .1 * w)
+        ..lineTo(1.05 * w, .1 * w)
+        ..lineTo(1.05 * w, 1.2 * w)
+        ..lineTo(.64 * w, 1.2 * w)
+        ..close(),
+      Paint()..color = const Color(0xFF55402F),
     );
     canvas.drawOval(
-      const Rect.fromLTWH(29, 8, 150, 60),
-      Paint()..color = const Color(0xFF8CD843),
+      Rect.fromLTWH(0, .06 * w, w, .32 * w),
+      Paint()..color = const Color(0x40000000),
+    );
+    canvas.restore();
+
+    canvas.drawOval(
+      Rect.fromLTWH(0, .05 * w, w, .31 * w),
+      Paint()..color = const Color(0xFF5F9535),
     );
     canvas.drawOval(
-      const Rect.fromLTWH(165, 41, 150, 58),
-      Paint()..color = const Color(0xFF5E9E2E),
+      Rect.fromLTWH(0, 0, w, .31 * w),
+      Paint()..color = const Color(0xFF84BF48),
+    );
+    canvas.drawOval(
+      Rect.fromLTWH(.08 * w, .03 * w, .32 * w, .12 * w),
+      Paint()..color = const Color(0xFFA2D561),
+    );
+    canvas.drawOval(
+      Rect.fromLTWH(.50 * w, .13 * w, .38 * w, .12 * w),
+      Paint()..color = const Color(0xFF6B9E3B),
     );
   }
 
@@ -443,41 +528,68 @@ class _IslandPainter extends CustomPainter {
   bool shouldRepaint(covariant CustomPainter old) => false;
 }
 
-// Garis putus-putus hijau antar lokasi (1 -> 2 -> 3 -> 4 -> 5)
-class _DashPainter extends CustomPainter {
-  _DashPainter(this.s);
-  final double s;
-
-  static const _curves = [
-    [680.0, 1767.0, 940.0, 1640.0, 800.0, 1290.0, 345.0, 1388.0],
-    [265.0, 1195.0, 285.0, 1040.0, 470.0, 1080.0, 660.0, 1140.0],
-    [695.0, 898.0, 640.0, 860.0, 480.0, 895.0, 365.0, 880.0],
-    [310.0, 632.0, 400.0, 540.0, 470.0, 555.0, 498.0, 538.0],
-  ];
+/// Jalur lengkung putus-putus antar pulau (bawah -> atas).
+class _DashedPathPainter extends CustomPainter {
+  _DashedPathPainter(this.p);
+  final List<Offset> p;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    final path = Path()..moveTo(p[0].dx, p[0].dy);
+    path.cubicTo(
+      w * 0.98,
+      p[0].dy - h * 0.03,
+      w * 0.98,
+      p[1].dy - h * 0.06,
+      p[1].dx,
+      p[1].dy,
+    );
+    path.cubicTo(
+      w * 0.22,
+      p[1].dy - h * 0.12,
+      w * 0.50,
+      p[2].dy,
+      p[2].dx,
+      p[2].dy,
+    );
+    path.cubicTo(
+      w * 0.62,
+      p[2].dy - h * 0.09,
+      w * 0.40,
+      p[3].dy + h * 0.03,
+      p[3].dx,
+      p[3].dy,
+    );
+    path.cubicTo(
+      w * 0.25,
+      p[3].dy - h * 0.07,
+      w * 0.50,
+      p[4].dy - h * 0.01,
+      p[4].dx,
+      p[4].dy,
+    );
+
     final paint = Paint()
-      ..color = AppColors.primary
+      ..color = const Color(0xFF66A85A)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 7 * s
+      ..strokeWidth = 3
       ..strokeCap = StrokeCap.round;
 
-    for (final c in _curves) {
-      final path = Path()
-        ..moveTo(c[0] * s, c[1] * s)
-        ..cubicTo(c[2] * s, c[3] * s, c[4] * s, c[5] * s, c[6] * s, c[7] * s);
-      for (final m in path.computeMetrics()) {
-        for (double d = 0; d < m.length; d += 34 * s) {
-          canvas.drawPath(
-            m.extractPath(d, math.min(d + 18 * s, m.length)),
-            paint,
-          );
-        }
+    const dash = 4.0;
+    const gap = 7.0;
+    for (final m in path.computeMetrics()) {
+      var d = 0.0;
+      while (d < m.length) {
+        final end = (d + dash).clamp(0.0, m.length).toDouble();
+        canvas.drawPath(m.extractPath(d, end), paint);
+        d += dash + gap;
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _DashPainter old) => old.s != s;
+  bool shouldRepaint(covariant _DashedPathPainter old) => old.p != p;
 }
