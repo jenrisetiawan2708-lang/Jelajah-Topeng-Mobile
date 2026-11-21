@@ -4,8 +4,10 @@ import '../../core/constants/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import '../../shared/widgets/app_bottom_nav.dart';
 import '../chat/chat_screen.dart';
+import '../education/education_screen.dart';
+import '../game/game_map_screen.dart';
 import '../profile/profile_screen.dart';
-import '../ticket/ticket_tab.dart';
+import '../ticket/booking/package_select_screen.dart';
 import 'home_tab.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,12 +21,27 @@ class _HomeScreenState extends State<HomeScreen> {
   int _index = 0;
 
   // Urutan: Beranda, Education, Game, Ticket, Profile
-  static const _labels = ['Beranda', 'Education', 'Game', 'Ticket', 'Profile'];
+  static const _gameIndex = 2;
   static const _tiketIndex = 3;
 
   void _openChat() {
     Navigator.of(context)
         .push(MaterialPageRoute(builder: (_) => const ChatScreen()));
+  }
+
+  void _onNavTap(int i) {
+    // Game dan Ticket dibuka sebagai layar penuh (route baru), navbar tidak ikut.
+    if (i == _gameIndex) {
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const GameMapScreen()));
+      return;
+    }
+    if (i == _tiketIndex) {
+      Navigator.of(context)
+          .push(MaterialPageRoute(builder: (_) => const PackageSelectScreen()));
+      return;
+    }
+    setState(() => _index = i);
   }
 
   @override
@@ -34,15 +51,15 @@ class _HomeScreenState extends State<HomeScreen> {
       backgroundColor: AppColors.mintBottom,
       body: IndexedStack(
         index: _index,
-        children: [
-          const HomeTab(),
-          _ComingSoon(label: _labels[1]),
-          _ComingSoon(label: _labels[2]),
-          const TiketTab(),
-          const ProfileScreen(),
+        children: const [
+          HomeTab(),
+          EducationScreen(),
+          SizedBox.shrink(), // slot Game: layar penuh, bukan tab
+          SizedBox.shrink(), // slot Ticket: layar penuh, bukan tab
+          ProfileScreen(),
         ],
       ),
-      floatingActionButton: (_index == 0 || _index == _tiketIndex)
+      floatingActionButton: _index == 0
           ? Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: FloatingActionButton.extended(
@@ -66,26 +83,8 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          child: AppBottomNav(
-            currentIndex: _index,
-            onTap: (i) => setState(() => _index = i),
-          ),
+          child: AppBottomNav(currentIndex: _index, onTap: _onNavTap),
         ),
-      ),
-    );
-  }
-}
-
-class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Text(
-        '$label (segera hadir)',
-        style: AppText.style(16, color: AppColors.muted),
       ),
     );
   }

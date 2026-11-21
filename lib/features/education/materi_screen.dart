@@ -1,244 +1,256 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../../shared/widgets/gradient_background.dart';
+
+import '../../core/theme/app_text.dart';
 import 'edu_header.dart';
 import 'edu_style.dart';
 import 'education_data.dart';
 import 'reading_screen.dart';
 
-class MateriScreen extends StatelessWidget {
+/// Detail materi: judul, tentang, daftar bacaan, progres.
+class MateriScreen extends StatefulWidget {
   const MateriScreen({super.key, required this.materi});
-
   final Materi materi;
 
-  BoxDecoration _cardDecoration(double radius) => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: EduColors.olive, width: 2.5),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      );
+  @override
+  State<MateriScreen> createState() => _MateriScreenState();
+}
+
+class _MateriScreenState extends State<MateriScreen> {
+  Future<void> _openReading(int index) async {
+    await Navigator.of(context)
+        .push(eduFade(ReadingScreen(materi: widget.materi, index: index)));
+    if (mounted) setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
+    final m = widget.materi;
+    final total = m.readings.length;
+    final done = EducationProgress.doneCount(m);
+    final reading = EducationProgress.readingCount(m);
+    // Selesai = 1 poin, sedang dibaca = setengah poin.
+    final progress = total == 0 ? 0.0 : (done + reading * 0.5) / total;
+    final pct = (progress * 100).round();
+
     return Scaffold(
-      body: GradientBackground(
+      backgroundColor: EduColors.bgTop,
+      body: EduBackground(
         child: SafeArea(
-          child: Column(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
             children: [
-              const SizedBox(height: 16),
-              const EduHeader(),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildInfoCard(),
-                      const SizedBox(height: 24),
-                      Text(
-                        'Tentang Materi',
-                        style: GoogleFonts.plusJakartaSans(
-                          color: EduColors.title,
-                          fontSize: 26,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        materi.description,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 18,
-                          height: 1.3,
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Pelajari Materi',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: EduColors.title,
-                              fontSize: 26,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          Text(
-                            '${materi.readings.length} Bacaan',
-                            style: GoogleFonts.plusJakartaSans(
-                              color: EduColors.muted,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      for (var i = 0; i < materi.readings.length; i++)
-                        _buildReadingTile(context, i),
-                      const SizedBox(height: 8),
-                      _buildProgressCard(),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInfoCard() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(22, 14, 22, 16),
-      decoration: _cardDecoration(32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'MATERI ${materi.number}',
-            style: GoogleFonts.plusJakartaSans(
-              color: EduColors.red,
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          Text(
-            materi.title.toUpperCase(),
-            style: GoogleFonts.plusJakartaSans(
-              color: EduColors.title,
-              fontSize: 29,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          Text(
-            'oleh ${materi.author}',
-            style: GoogleFonts.plusJakartaSans(
-              color: EduColors.muted,
-              fontSize: 17,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Lingkaran status: 0 = selesai, 1 = sedang dibaca, 2+ = belum dimulai
-  Widget _buildStatusCircle(int i) {
-    Color bg;
-    Widget child;
-    if (i == 0) {
-      bg = EduColors.done;
-      child = const Icon(Icons.check, color: Colors.white, size: 22);
-    } else if (i == 1) {
-      bg = EduColors.gold;
-      child = const Icon(Icons.check, color: Colors.black, size: 22);
-    } else {
-      bg = EduColors.beige;
-      child = Text(
-        '${i + 1}',
-        style: GoogleFonts.plusJakartaSans(
-          color: EduColors.muted,
-          fontSize: 18,
-          fontWeight: FontWeight.w800,
-        ),
-      );
-    }
-    return Container(
-      width: 40,
-      height: 40,
-      decoration: BoxDecoration(shape: BoxShape.circle, color: bg),
-      child: Center(child: child),
-    );
-  }
-
-  Widget _buildReadingTile(BuildContext context, int i) {
-    final r = materi.readings[i];
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 9),
-      child: GestureDetector(
-        onTap: () => Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => ReadingScreen(materi: materi, index: i),
-          ),
-        ),
-        child: Container(
-          constraints: const BoxConstraints(minHeight: 60),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          decoration: _cardDecoration(30),
-          child: Row(
-            children: [
-              _buildStatusCircle(i),
-              const SizedBox(width: 14),
-              Expanded(
+              const Row(children: [EduBackBtn(), Spacer(), EduGemBadge()]),
+              const SizedBox(height: 22),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 16),
+                decoration: eduCardDeco(radius: 24, border: 2.5),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      r.menuTitle,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: EduColors.title,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
+                      'MATERI ${m.number}',
+                      style: AppText.style(
+                        14,
+                        weight: FontWeight.w700,
+                        color: EduColors.red,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
-                      'Bacaan',
-                      style: GoogleFonts.plusJakartaSans(
-                        color: EduColors.muted,
-                        fontSize: 16,
+                      m.title.toUpperCase(),
+                      style: AppText.style(
+                        24,
+                        weight: FontWeight.w800,
+                        color: EduColors.forest,
                       ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'oleh ${m.author}',
+                      style: AppText.style(14, color: EduColors.grey),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: EduColors.muted, size: 30),
+              const SizedBox(height: 24),
+              Text(
+                'Tentang Materi',
+                style: AppText.style(
+                  21,
+                  weight: FontWeight.w800,
+                  color: EduColors.forest,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                m.about,
+                style: AppText.style(15, color: EduColors.text, height: 1.65),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'Pelajari Materi',
+                    style: AppText.style(
+                      21,
+                      weight: FontWeight.w800,
+                      color: EduColors.forest,
+                    ),
+                  ),
+                  Text(
+                    '$total Bacaan',
+                    style: AppText.style(
+                      14,
+                      weight: FontWeight.w600,
+                      color: EduColors.grey,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              for (var i = 0; i < total; i++) ...[
+                _ReadingTile(
+                  title: m.readings[i].title,
+                  number: i + 1,
+                  status: EducationProgress.of(m.number, i),
+                  onTap: () => _openReading(i),
+                ),
+                const SizedBox(height: 10),
+              ],
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.fromLTRB(18, 14, 18, 18),
+                decoration: eduCardDeco(radius: 26, border: 2.5),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Progress Belajar · $pct%',
+                          style: AppText.style(
+                            14,
+                            weight: FontWeight.w800,
+                            color: EduColors.forest,
+                          ),
+                        ),
+                        Text(
+                          '$done dari $total materi selesai',
+                          style: AppText.style(
+                            12,
+                            weight: FontWeight.w600,
+                            color: EduColors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: progress),
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeOutCubic,
+                      builder: (_, v, _) =>
+                          EduProgressBar(value: v, color: EduColors.gold),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildProgressCard() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-      decoration: _cardDecoration(32),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Progress Belajar · 67%',
-                style: GoogleFonts.plusJakartaSans(
-                  color: EduColors.title,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              Text(
-                '2 dari 3 materi selesai',
-                style: GoogleFonts.plusJakartaSans(
-                  color: EduColors.muted,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+class _ReadingTile extends StatelessWidget {
+  const _ReadingTile({
+    required this.title,
+    required this.number,
+    required this.status,
+    required this.onTap,
+  });
+  final String title;
+  final int number;
+  final int status;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final Widget badge;
+    if (status == 2) {
+      badge = _circle(
+        EduColors.forestDark,
+        const Icon(Icons.check_rounded, size: 22, color: Colors.white),
+      );
+    } else if (status == 1) {
+      badge = _circle(
+        EduColors.gold,
+        const Icon(Icons.check_rounded, size: 22, color: EduColors.text),
+      );
+    } else {
+      badge = _circle(
+        EduColors.beige,
+        Text(
+          '$number',
+          style: AppText.style(
+            15,
+            weight: FontWeight.w800,
+            color: EduColors.grey,
           ),
-          const SizedBox(height: 8),
-          const EduBar(value: 0.67, color: EduColors.gold, height: 10),
-        ],
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        decoration: eduCardDeco(radius: 26, border: 2),
+        child: Row(
+          children: [
+            badge,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: AppText.style(
+                      15,
+                      weight: FontWeight.w600,
+                      color: EduColors.forest,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    'Bacaan',
+                    style: AppText.style(13, color: EduColors.grey),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 28,
+              color: EduColors.grey,
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _circle(Color color, Widget child) {
+    return Container(
+      width: 40,
+      height: 40,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      child: Center(child: child),
     );
   }
 }

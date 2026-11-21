@@ -1,134 +1,174 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../../core/theme/app_colors.dart';
-import '../../shared/widgets/asset_icon.dart';
+import 'package:flutter/services.dart';
 
-/// Header Education: tombol back + (opsional) tombol peta + skor atau tombol Next.
-class EduHeader extends StatelessWidget {
-  const EduHeader({
-    super.key,
-    this.showMap = false,
-    this.onNext,
-    this.onMap,
-  });
+import '../../core/theme/app_text.dart';
+import 'edu_style.dart';
 
-  final bool showMap;
-  final VoidCallback? onNext; // kalau diisi, kanan atas jadi tombol "Next"
-  final VoidCallback? onMap; // aksi tombol peta
-
-  BoxDecoration get _pillDecoration => BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(26),
-      );
+/// Latar gradasi hijau muda -> putih -> hijau muda.
+class EduBackground extends StatelessWidget {
+  const EduBackground({super.key, required this.child});
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => Navigator.maybePop(context),
-            child: Container(
-              width: 53,
-              height: 53,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.6),
-              ),
-              child: const Icon(Icons.chevron_left, size: 36, color: Colors.black),
-            ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: Colors.transparent,
+      ),
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [EduColors.bgTop, EduColors.bgMid, EduColors.bgBottom],
+            stops: [0.0, 0.7, 1.0],
           ),
-          if (showMap) ...[
-            const SizedBox(width: 6),
-            GestureDetector(onTap: onMap, child: _buildMapButton()),
-          ],
-          const Spacer(),
-          onNext != null ? _buildNext() : _buildScore(),
-        ],
+        ),
+        child: child,
       ),
     );
   }
+}
 
-  Widget _buildMapButton() {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          padding: const EdgeInsets.only(bottom: 5),
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(26),
-          ),
-          child: Container(
-            width: 52,
-            height: 43,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(26),
-              gradient: const LinearGradient(
-                colors: [AppColors.darkGreen, AppColors.midGreen],
-              ),
-            ),
-            child: const Icon(Icons.map, color: Colors.white, size: 26),
-          ),
+/// Dekorasi tombol "kaca" di bagian atas (back, 5/5, Next).
+BoxDecoration eduGlassDeco({BoxShape shape = BoxShape.circle}) {
+  return BoxDecoration(
+    shape: shape,
+    borderRadius: shape == BoxShape.circle ? null : BorderRadius.circular(30),
+    color: Colors.white.withValues(alpha: 0.6),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withValues(alpha: 0.08),
+        blurRadius: 10,
+        offset: const Offset(0, 3),
+      ),
+    ],
+  );
+}
+
+class EduBackBtn extends StatelessWidget {
+  const EduBackBtn({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.of(context).maybePop(),
+      child: Container(
+        width: 52,
+        height: 52,
+        decoration: eduGlassDeco(),
+        child: const Icon(
+          Icons.chevron_left_rounded,
+          size: 34,
+          color: Colors.black,
         ),
-        Positioned(
-          top: -12,
-          right: -4,
-          child: Text(
-            '1',
-            style: GoogleFonts.plusJakartaSans(
-              color: Colors.red,
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
+}
 
-  Widget _buildScore() {
+class EduGemBadge extends StatelessWidget {
+  const EduGemBadge({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       height: 52,
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      decoration: _pillDecoration,
+      width: 108,
+      decoration: eduGlassDeco(shape: BoxShape.rectangle),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const AssetIcon(
-            path: 'assets/images/ic_diamond.png',
-            fallback: Icons.diamond,
-            size: 30,
-            color: Color(0xFFF7C95C),
-          ),
+          const Icon(Icons.diamond_rounded, size: 24, color: EduColors.gem),
           const SizedBox(width: 8),
           Text(
             '5/5',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
+            style: AppText.style(
+              18,
+              weight: FontWeight.w800,
+              color: Colors.black,
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  Widget _buildNext() {
+/// Tombol "Next" di halaman baca.
+class EduNextBtn extends StatelessWidget {
+  const EduNextBtn({super.key, required this.onTap});
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onNext,
+      onTap: onTap,
       child: Container(
         height: 52,
-        padding: const EdgeInsets.symmetric(horizontal: 28),
+        width: 108,
         alignment: Alignment.center,
-        decoration: _pillDecoration,
+        decoration: eduGlassDeco(shape: BoxShape.rectangle),
         child: Text(
           'Next',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 24,
-            fontWeight: FontWeight.w800,
+          style: AppText.style(
+            22,
+            weight: FontWeight.w800,
+            color: Colors.black,
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Tombol peta 3D (hijau tua + bayangan hijau).
+class EduMapBtn extends StatelessWidget {
+  const EduMapBtn({super.key, this.onTap});
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: 50,
+        height: 55,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              left: 0,
+              top: 5,
+              child: Container(
+                width: 50,
+                height: 50,
+                decoration: const BoxDecoration(
+                  color: EduColors.listBorder,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              top: 0,
+              child: Container(
+                width: 50,
+                height: 50,
+                decoration: const BoxDecoration(
+                  color: EduColors.forest,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.map_rounded,
+                  size: 26,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
