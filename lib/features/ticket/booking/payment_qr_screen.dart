@@ -1,10 +1,12 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../flow_widgets.dart';
 import 'booking_data.dart';
 import 'payment_result_screen.dart';
-import 'step_bar.dart';
 
+/// Pembayaran QR (desain Figma "Pembayaran QR").
 class PaymentQrScreen extends StatefulWidget {
   const PaymentQrScreen({super.key, required this.data});
 
@@ -15,9 +17,8 @@ class PaymentQrScreen extends StatefulWidget {
 }
 
 class _PaymentQrScreenState extends State<PaymentQrScreen> {
-  static const _border = Color(0xFFCFE7B0);
-
   int _left = 899; // 14:59
+  bool _checking = false;
   Timer? _timer;
 
   @override
@@ -30,8 +31,6 @@ class _PaymentQrScreenState extends State<PaymentQrScreen> {
         setState(() => _left--);
       }
     });
-    // TODO: ganti dengan polling GET /api/payments/{orderId}/status
-    // ke backend, lalu panggil _finish(true) saat status sudah "paid".
   }
 
   @override
@@ -45,9 +44,20 @@ class _PaymentQrScreenState extends State<PaymentQrScreen> {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => PaymentResultScreen(data: widget.data, success: success),
+        builder: (_) =>
+            PaymentResultScreen(data: widget.data, success: success),
       ),
     );
+  }
+
+  /// "Saya Sudah Bayar".
+  /// TODO: ganti dengan GET /api/payments/{orderId}/status ke backend,
+  /// lalu _finish(true) jika status "paid", atau tampilkan pesan jika belum.
+  Future<void> _paid() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    _finish(true);
   }
 
   String get _clock {
@@ -56,200 +66,122 @@ class _PaymentQrScreenState extends State<PaymentQrScreen> {
     return '$m:$s';
   }
 
-  void _soon(String what) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$what aktif setelah terhubung ke pembayaran QRIS.')),
-    );
-  }
-
-  BoxDecoration get _card => BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _border, width: 1.2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      );
-
   @override
   Widget build(BuildContext context) {
     final d = widget.data;
     return FlowScaffold(
       header: const FlowHeader(title: 'Pembayaran', titleColor: FC.dark),
       gap: 14,
-      bottom: _buildBottom(),
+      bottom: FlowButton(
+        text: _checking ? 'Memeriksa pembayaran...' : 'Saya Sudah Bayar',
+        height: 52,
+        enabled: !_checking,
+        onTap: _paid,
+      ),
+      children: [_buildSummary(d), _buildQr()],
+    );
+  }
+
+  Widget _buildSummary(BookingData d) {
+    return FlowCard(
+      radius: 18,
       children: [
-        const BookingStepBar(current: 3),
-        _buildTotal(d),
-        _buildQr(),
-        _buildHowTo(),
+        Text(
+          'RINGKASAN PESANAN',
+          style: jk(10, w: FontWeight.w800, c: FC.red),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Kampung Budaya Polowijen',
+          style: jk(18, w: FontWeight.w800, c: FC.dark),
+        ),
+        const SizedBox(height: 6),
+        KV('Tanggal kunjungan', dateId(d.date), valueColor: FC.dark),
+        KV('Jam kunjungan', '${d.time} WIB', valueColor: FC.dark),
+        KV(
+          'Jumlah tiket',
+          d.package.flatTotal != null
+              ? 'Paket tetap (maks. ${d.package.maxPeople} orang)'
+              : '${d.tickets} tiket × ${rupiah(d.unitPrice)}',
+          valueColor: FC.dark,
+        ),
+        const FlowLine(),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Total bayar', style: jk(12, c: FC.muted)),
+            Text(
+              rupiah(d.total),
+              style: jk(20, w: FontWeight.w800, c: FC.button),
+            ),
+          ],
+        ),
       ],
     );
   }
 
-  Widget _buildTotal(BookingData d) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: _card,
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Total pembayaran', style: jk(11.5, c: FC.muted)),
-                Text(rupiah(d.total),
-                    style: jk(24, w: FontWeight.w800, c: FC.dark)),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: FC.gold,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text('Bayar dalam $_clock',
-                style: jk(11.5, w: FontWeight.w700)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _outlined(IconData icon, String text, VoidCallback onTap) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 44,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: FC.dark, width: 1.3),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 18, color: FC.dark),
-              const SizedBox(width: 6),
-              Text(text, style: jk(12.5, w: FontWeight.w700, c: FC.dark)),
-            ],
+  Widget _buildQr() {
+    return FlowCard(
+      radius: 22,
+      padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
+      children: [
+        Center(
+          child: Text(
+            'Scan QR untuk membayar',
+            style: jk(14, w: FontWeight.w800, c: FC.dark),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildQr() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
-      decoration: _card,
-      child: Column(
-        children: [
-          GestureDetector(
+        const SizedBox(height: 12),
+        Center(
+          child: GestureDetector(
             // Mode uji coba: tekan lama QR = simulasi pembayaran berhasil.
             onLongPress: () => _finish(true),
-            child: const QrImage(size: 200),
+            child: const QrImage(size: 210),
           ),
-          const SizedBox(height: 6),
-          Text('QRIS · Jelajah Topeng',
-              style: jk(12, w: FontWeight.w700, c: FC.dark)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _outlined(Icons.download_outlined, 'Simpan QR',
-                  () => _soon('Simpan QR')),
-              const SizedBox(width: 10),
-              _outlined(Icons.account_balance_wallet_outlined, 'Buka e-wallet',
-                  () => _soon('Buka e-wallet')),
-            ],
+        ),
+        const SizedBox(height: 4),
+        Center(
+          child: Text(
+            'QRIS',
+            style: jk(12, w: FontWeight.w800, c: FC.dark),
           ),
-          const SizedBox(height: 10),
-          Text('Mode uji coba: tekan lama QR untuk simulasi bayar berhasil.',
-              textAlign: TextAlign.center, style: jk(10, c: FC.muted)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHowTo() {
-    const steps = [
-      'Simpan QR atau buka aplikasi e-wallet kamu',
-      'Pilih Scan QR lalu pilih gambar QR di atas',
-      'Konfirmasi nominal. Tiket muncul otomatis di tab Tiket',
-    ];
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: _card,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Cara membayar', style: jk(14, w: FontWeight.w800, c: FC.dark)),
-          const SizedBox(height: 10),
-          for (var i = 0; i < steps.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
+        ),
+        const SizedBox(height: 10),
+        Center(
+          child: GestureDetector(
+            // Mode uji coba: tekan lama waktu = simulasi pembayaran gagal.
+            onLongPress: () => _finish(false),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: FC.gold,
+                borderRadius: BorderRadius.circular(20),
+              ),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: 22,
-                    height: 22,
-                    alignment: Alignment.center,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: FC.dark,
-                    ),
-                    child: Text('${i + 1}',
-                        style: jk(11, w: FontWeight.w800, c: Colors.white)),
+                  const Icon(
+                    Icons.access_time_filled_rounded,
+                    size: 14,
+                    color: FC.ink,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(steps[i], style: jk(12, h: 1.3))),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Bayar sebelum $_clock',
+                    style: jk(11.5, w: FontWeight.w700),
+                  ),
                 ],
               ),
             ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBottom() {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          height: 52,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: FC.dark,
-            borderRadius: BorderRadius.circular(26),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(
-                width: 18,
-                height: 18,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Text('Memeriksa pembayaran...',
-                  style: jk(14, w: FontWeight.w800, c: Colors.white)),
-            ],
           ),
         ),
-        const SizedBox(height: 6),
-        Text(
-          'Tombol dikunci agar tidak tertekan dua kali. Tiket muncul otomatis.',
-          textAlign: TextAlign.center,
-          style: jk(10, c: FC.muted),
+        const SizedBox(height: 10),
+        Center(
+          child: Text(
+            'Gunakan aplikasi bank atau e-wallet kamu.',
+            textAlign: TextAlign.center,
+            style: jk(10, c: FC.muted),
+          ),
         ),
       ],
     );

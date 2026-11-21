@@ -1,21 +1,55 @@
 const monthsId = [
-  'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+  'Januari',
+  'Februari',
+  'Maret',
+  'April',
+  'Mei',
+  'Juni',
+  'Juli',
+  'Agustus',
+  'September',
+  'Oktober',
+  'November',
+  'Desember',
 ];
 const monthsShortId = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-  'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'Mei',
+  'Jun',
+  'Jul',
+  'Agu',
+  'Sep',
+  'Okt',
+  'Nov',
+  'Des',
 ];
 const monthsEn = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 const daysEn = [
-  'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday',
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
 ];
-const daysId = [
-  'Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu',
-];
+const daysId = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
 
 /// 50000 -> "Rp50.000" (prefix bisa diganti, mis. "Rp.")
 String rupiah(int v, {String prefix = 'Rp'}) {
@@ -133,14 +167,15 @@ const kPackages = [
 /// Data pesanan yang dibawa dari halaman ke halaman.
 class BookingData {
   BookingData({TicketPackage? package})
-      : package = package ?? kPackages[0],
-        date = DateTime(2026, 10, 15);
+    : package = package ?? kPackages[0],
+      date = DateTime(2026, 10, 15);
 
   TicketPackage package;
   DateTime date;
   int tickets = 2;
   String name = '';
   String phone = '';
+  List<String> companions = [];
 
   String? _time;
   String get time => _time ?? package.time;

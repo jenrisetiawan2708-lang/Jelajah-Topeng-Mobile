@@ -1,10 +1,12 @@
 import 'booking/pick_date_screen.dart';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../shared/widgets/accordion_card.dart';
 import '../../shared/widgets/dark_button.dart';
 import '../../shared/widgets/gradient_background.dart';
-import '../education/edu_header.dart';
+import 'flow_widgets.dart';
 
 class TicketScreen extends StatefulWidget {
   const TicketScreen({super.key});
@@ -82,9 +84,8 @@ class _TicketScreenState extends State<TicketScreen> {
   int? _open; // paket yang sedang terbuka
 
   void _buy(String title) {
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PickDateScreen()),
-    );
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => PickDateScreen()));
   }
 
   @override
@@ -109,7 +110,7 @@ class _TicketScreenState extends State<TicketScreen> {
               child: Column(
                 children: [
                   const SizedBox(height: 16),
-                  const EduHeader(),
+                  const FlowHeader(person: true),
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.fromLTRB(20, 59, 20, 24),

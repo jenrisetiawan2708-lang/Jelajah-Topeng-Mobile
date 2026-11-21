@@ -1,12 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../shared/widgets/gradient_background.dart';
 import '../education/edu_style.dart';
 import '../profile/profile_screen.dart';
 
-TextStyle jk(double size,
-        {FontWeight w = FontWeight.w400, Color c = Colors.black, double? h}) =>
-    GoogleFonts.plusJakartaSans(fontSize: size, fontWeight: w, color: c, height: h);
+TextStyle jk(
+  double size, {
+  FontWeight w = FontWeight.w400,
+  Color c = Colors.black,
+  double? h,
+}) => GoogleFonts.plusJakartaSans(
+  fontSize: size,
+  fontWeight: w,
+  color: c,
+  height: h,
+);
 
 class FC {
   static const dark = Color(0xFF2D4A1E);
@@ -41,17 +50,17 @@ class FlowHeader extends StatelessWidget {
   final bool person; // ikon orang kanan atas
 
   Widget _circle(IconData icon, VoidCallback onTap) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: 0.8),
-          ),
-          child: Icon(icon, size: 28, color: Colors.black),
-        ),
-      );
+    onTap: onTap,
+    child: Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: 0.8),
+      ),
+      child: Icon(icon, size: 28, color: Colors.black),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -63,8 +72,10 @@ class FlowHeader extends StatelessWidget {
           if (title != null) ...[
             const SizedBox(width: 12),
             Expanded(
-              child: Text(title!,
-                  style: jk(20, w: FontWeight.w800, c: titleColor)),
+              child: Text(
+                title!,
+                style: jk(20, w: FontWeight.w800, c: titleColor),
+              ),
             ),
           ] else
             const Spacer(),
@@ -86,9 +97,9 @@ class FlowHeader extends StatelessWidget {
           if (person)
             _circle(
               Icons.person_outline,
-              () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ProfileScreen()),
-              ),
+              () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const ProfileScreen())),
             ),
         ],
       ),
@@ -216,10 +227,15 @@ class FlowTitle extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (label != null)
-          Text(label!, style: jk(11, w: FontWeight.w800, c: FC.red)),
-        Text(title, style: jk(26, w: FontWeight.w800, c: FC.dark, h: 1.15)),
-        if (subtitle != null)
-          Text(subtitle!, style: jk(11.5, c: FC.muted)),
+          Text(
+            label!,
+            style: jk(11, w: FontWeight.w800, c: FC.red),
+          ),
+        Text(
+          title,
+          style: jk(26, w: FontWeight.w800, c: FC.dark, h: 1.15),
+        ),
+        if (subtitle != null) Text(subtitle!, style: jk(11.5, c: FC.muted)),
         if (line) const FlowLine(),
       ],
     );
@@ -287,8 +303,11 @@ class InfoBox extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(quote ? Icons.format_quote : Icons.info_outline,
-              color: FC.gold, size: 18),
+          Icon(
+            quote ? Icons.format_quote : Icons.info_outline,
+            color: FC.gold,
+            size: 18,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -338,10 +357,14 @@ class FlowButton extends StatelessWidget {
           decoration: BoxDecoration(
             color: outlinedRed ? Colors.white : FC.button,
             borderRadius: BorderRadius.circular(height / 2),
-            border: outlinedRed ? Border.all(color: FC.redDark, width: 1.4) : null,
+            border: outlinedRed
+                ? Border.all(color: FC.redDark, width: 1.4)
+                : null,
             boxShadow: outlinedRed
                 ? null
-                : const [BoxShadow(color: Color(0xFF6AA83A), offset: Offset(0, 2))],
+                : const [
+                    BoxShadow(color: Color(0xFF6AA83A), offset: Offset(0, 2)),
+                  ],
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -350,7 +373,10 @@ class FlowButton extends StatelessWidget {
                 Icon(icon, color: color, size: 20),
                 const SizedBox(width: 8),
               ],
-              Text(text, style: jk(14, w: FontWeight.w800, c: color)),
+              Text(
+                text,
+                style: jk(14, w: FontWeight.w800, c: color),
+              ),
             ],
           ),
         ),
@@ -400,11 +426,14 @@ class StepCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(label, style: jk(11, c: FC.muted)),
-              Text(right, style: jk(14, w: FontWeight.w800, c: rightColor)),
+              Text(
+                right,
+                style: jk(14, w: FontWeight.w800, c: rightColor),
+              ),
             ],
           ),
           const SizedBox(height: 6),
-          EduBar(value: value, color: color, height: 7),
+          EduProgressBar(value: value, color: color),
           const SizedBox(height: 6),
           Text(caption, style: jk(10.5, c: FC.muted)),
         ],
