@@ -1,7 +1,9 @@
 import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
 import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/dark_button.dart';
 import '../../shared/widgets/dark_card.dart';
@@ -10,7 +12,9 @@ import 'game_clue_screen.dart';
 import 'game_header.dart';
 
 class GameOrderScreen extends StatefulWidget {
-  const GameOrderScreen({super.key});
+  const GameOrderScreen({super.key, required this.gems});
+
+  final int gems;
 
   @override
   State<GameOrderScreen> createState() => _GameOrderScreenState();
@@ -19,13 +23,22 @@ class GameOrderScreen extends StatefulWidget {
 class _GameOrderScreenState extends State<GameOrderScreen>
     with TickerProviderStateMixin {
   static const _cards = [
-    ('Memahat', 'Pahat bagian kasar dulu, lalu detail mata, hidung, dan mulut.'),
-    ('Mewarnai dan finishing',
-        'Beri warna, detail alis dan bibir, pernis, lalu pasang tali.'),
-    ('Membuat Pola',
-        'Membuat sketsa wajah: bentuk muka, lalu detail mata, hidung, dan mulut.'),
-    ('Amplas dan Cat dasar',
-        'Haluskan permukaan, lalu lapisi cat dasar agar warna rata.'),
+    (
+      'Memahat',
+      'Pahat bagian kasar dulu, lalu detail mata, hidung, dan mulut.',
+    ),
+    (
+      'Mewarnai dan finishing',
+      'Beri warna, detail alis dan bibir, pernis, lalu pasang tali.',
+    ),
+    (
+      'Membuat Pola',
+      'Membuat sketsa wajah: bentuk muka, lalu detail mata, hidung, dan mulut.',
+    ),
+    (
+      'Amplas dan Cat dasar',
+      'Haluskan permukaan, lalu lapisi cat dasar agar warna rata.',
+    ),
     ('Memilih kayu', 'Pilih kayu yang ringan dan lunak, lalu keringkan dulu.'),
   ];
 
@@ -54,7 +67,10 @@ class _GameOrderScreenState extends State<GameOrderScreen>
     duration: const Duration(milliseconds: 400),
   );
 
-  final _placed = List<bool>.filled(5, false); // kartu sudah diambil dari daftar
+  final _placed = List<bool>.filled(
+    5,
+    false,
+  ); // kartu sudah diambil dari daftar
   int _filled = 0; // jumlah kotak jawaban yang sudah terisi
   bool _busy = false;
   int? _flyCard;
@@ -133,7 +149,7 @@ class _GameOrderScreenState extends State<GameOrderScreen>
               child: Column(
                 children: [
                   const SizedBox(height: 16),
-                  const GameHeader(title: 'Jejak Sang Panji', score: 1),
+                  GameHeader(title: 'Jejak Sang Panji', score: widget.gems),
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.only(top: 24, bottom: 12),

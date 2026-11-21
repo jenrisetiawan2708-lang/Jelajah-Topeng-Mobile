@@ -1,19 +1,13 @@
 import 'dart:async';
-import 'dart:math' as math;
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../../core/theme/app_colors.dart';
-import '../../shared/widgets/asset_icon.dart';
-import '../../shared/widgets/gradient_background.dart';
-import '../../shared/widgets/waving_panji.dart';
-import 'game_header.dart';
-import 'game_batik_screen.dart';
-import 'game_fill_screen.dart';
-import 'game_match_screen.dart';
-import 'game_order_screen.dart';
-import 'game_progress.dart';
-import 'game_quiz_screen.dart';
 
+import 'package:flutter/material.dart';
+
+import 'game_data.dart';
+import 'game_order_screen.dart';
+import 'game_quiz_screen.dart';
+import 'game_widgets.dart';
+
+/// Peta level "Jejak Sang Panji". Dibuka sebagai layar penuh (tanpa navbar).
 class GameMapScreen extends StatefulWidget {
   const GameMapScreen({super.key});
 
@@ -22,404 +16,410 @@ class GameMapScreen extends StatefulWidget {
 }
 
 class _GameMapScreenState extends State<GameMapScreen> {
-  bool _started = false;
-  int? _hintLevel; // indeks level terkunci yang petunjuknya sedang tampil
-  Timer? _hintTimer;
-
-  // Posisi tengah 5 level (ukuran desain Figma 990 x 2150), dari level 1 ke 5
-  static const _levels = [
-    (494.0, 1841.0),
-    (265.0, 1370.0),
-    (769.0, 1052.0),
-    (244.0, 777.0),
-    (729.0, 526.0),
+  // Posisi pusat lingkaran (0..1), diambil dari desain.
+  // Urutan: level 1 (Start, paling bawah) sampai level 5 (paling atas).
+  static const _slots = <Offset>[
+    Offset(0.499, 0.861),
+    Offset(0.269, 0.640),
+    Offset(0.776, 0.493),
+    Offset(0.247, 0.365),
+    Offset(0.737, 0.249),
   ];
 
-  @override
-  void dispose() {
-    _hintTimer?.cancel();
-    super.dispose();
-  }
+  /// Lokasi gambar. Ganti kalau nama atau foldernya berbeda.
+  static const _groundAsset = 'assets/images/map_ground.png';
+  static const _panjiAsset = 'assets/images/ic_lock.png';
 
-  void _showHint(int i) {
-    _hintTimer?.cancel();
-    setState(() => _hintLevel = i);
-    _hintTimer = Timer(const Duration(milliseconds: 2800), () {
-      if (mounted) setState(() => _hintLevel = null);
+  int _completed = 0;
+  bool _started = false;
+  String? _message;
+  int _messageToken = 0;
+
+  void _showMessage(String text) {
+    final token = ++_messageToken;
+    setState(() => _message = text);
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted && token == _messageToken) setState(() => _message = null);
     });
   }
 
-  void _openLevel(int level) {
-    final Widget? page = switch (level) {
-      0 => const GameQuizScreen(),
-      1 => const GameOrderScreen(),
-      2 => const GameMatchScreen(),
-      3 => const GameFillScreen(),
-      4 => const GameBatikScreen(),
-      _ => null,
-    };
-    if (page == null) return;
-    Navigator.of(context).push(MaterialPageRoute(builder: (_) => page));
-  }
-
-  Widget _disc(
-    double s, {
-    required double cx,
-    required double cy,
-    required Color face,
-    required Color edge,
-    Widget? child,
-    VoidCallback? onTap,
-  }) {
-    final d = 300 * s;
-    final lip = 22 * s;
-    return Positioned(
-      left: cx * s - d / 2,
-      top: cy * s - d / 2,
-      width: d,
-      height: d + lip,
-      child: GestureDetector(
-        onTap: onTap,
-        child: Stack(
-          children: [
-            Positioned(
-              top: lip,
-              left: 0,
-              right: 0,
-              height: d,
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: edge,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
-                      blurRadius: 12,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
-                ),
+  Future<void> _openChallenge(int index) async {
+    setState(() => _started = true);
+    final ok = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => index == 1
+            ? GameOrderScreen(gems: _completed)
+            : GameQuizScreen(
+                challenge: gameChallenges[index],
+                gems: _completed,
               ),
-            ),
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: d,
-              child: DecoratedBox(
-                decoration: BoxDecoration(shape: BoxShape.circle, color: face),
-                child: Center(child: child),
-              ),
-            ),
-          ],
-        ),
       ),
     );
+    if (ok == true && mounted && _completed == index) {
+      setState(() => _completed++);
+    }
   }
 
-  // Lingkaran level: terkunci / aktif / selesai
-  Widget _levelDisc(double s, int i, int done) {
-    final (cx, cy) = _levels[i];
-
-    if (i > done) {
-      return _disc(
-        s,
-        cx: cx,
-        cy: cy,
-        face: const Color(0xFFBDBDBD),
-        edge: const Color(0xFF909090),
-        onTap: () => _showHint(i),
-        child: AssetIcon(
-          path: 'assets/images/ic_lock.png',
-          fallback: Icons.lock,
-          size: 120 * s,
-          color: const Color(0xFF7C7777),
-        ),
+  void _onNodeTap(int i) {
+    if (i == _completed) {
+      _openChallenge(i);
+    } else if (i > _completed) {
+      _showMessage(
+        'Selesaikan Level ${_completed + 1} agar dapat membuka level ${i + 1}',
       );
     }
-
-    final isStart = i == 0 && done == 0 && !_started;
-    Widget? label;
-    if (isStart) {
-      label = _outlined('Start', 100 * s, 12 * s);
-    } else if (i < done) {
-      label = _outlined('Level ${i + 1}\nComplate', 54 * s, 8 * s);
-    }
-
-    return _disc(
-      s,
-      cx: cx,
-      cy: cy,
-      face: AppColors.edge,
-      edge: AppColors.darkGreen,
-      onTap: isStart ? () => setState(() => _started = true) : null,
-      child: label,
-    );
-  }
-
-  // Label "Level N" di bawah lingkaran yang terkunci (V2)
-  Widget _levelLabel(double s, int i) {
-    final (cx, cy) = _levels[i];
-    final w = 300 * s;
-    return Positioned(
-      left: cx * s - w / 2,
-      top: cy * s + (150 + 22 + 12) * s,
-      width: w,
-      child: IgnorePointer(
-        child: Center(
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: math.max(8.0, 24 * s),
-              vertical: math.max(2.0, 6 * s),
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.primary, width: 1),
-            ),
-            child: Text(
-              'Level ${i + 1}',
-              style: GoogleFonts.plusJakartaSans(
-                fontSize: math.max(11.0, 38 * s),
-                fontWeight: FontWeight.w800,
-                color: AppColors.darkGreen,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Gelembung petunjuk saat level terkunci diketuk (V2)
-  Widget _hintBubble(double s, int i, int done) {
-    final (cx, cy) = _levels[i];
-    final w = 560 * s;
-    final left = (cx * s - w / 2).clamp(8.0, 990 * s - w - 8.0).toDouble();
-    return Positioned(
-      left: left,
-      top: cy * s - 285 * s,
-      width: w,
-      child: IgnorePointer(
-        child: Container(
-          padding: EdgeInsets.all(math.max(8.0, 22 * s)),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.primary, width: 1.4),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Text(
-            'Selesaikan Level ${done + 1} dulu untuk membuka Level ${i + 1}',
-            textAlign: TextAlign.center,
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: math.max(11.0, 34 * s),
-              fontWeight: FontWeight.w700,
-              color: Colors.black87,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // Panji berdiri di level yang sedang aktif
-  Widget _panji(double s, int level) {
-    final (cx, cy) = _levels[level];
-    return Positioned(
-      left: (cx - 200) * s,
-      top: (cy - 256) * s,
-      width: 400 * s,
-      height: 400 * s,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () => _openLevel(level),
-        child: ClipPath(
-          clipper: _PanjiClipper(s),
-          child: const WavingPanji(),
-        ),
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: GradientBackground(
-        colors: const [AppColors.bgTop, Colors.white],
-        stops: const [0.0, 0.42],
-        child: ValueListenableBuilder<int>(
-          valueListenable: GameProgress.completed,
-          builder: (context, done, _) {
-            return LayoutBuilder(
-              builder: (context, c) {
-                final s = math.min(c.maxWidth / 990, c.maxHeight / 2150);
-                return Stack(
-                  children: [
-                    // Rumput + pohon di bawah
-                    Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      child: Image.asset(
-                        'assets/images/map_ground.png',
-                        fit: BoxFit.fitWidth,
-                        errorBuilder: (_, _, _) => Container(
-                          height: 330 * s,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF8BC34A),
-                            borderRadius: BorderRadius.vertical(
-                              top: Radius.elliptical(c.maxWidth, 120 * s),
+      backgroundColor: Colors.white,
+      body: GameBackground(
+        child: LayoutBuilder(
+          builder: (context, c) {
+            final w = c.maxWidth;
+            final h = c.maxHeight;
+            final d = (w * 0.32).clamp(0.0, h * 0.147).toDouble();
+            final pts = [for (final s in _slots) Offset(s.dx * w, s.dy * h)];
+
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                // Rumput dari foto, menempel di bawah.
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Image.asset(
+                    _groundAsset,
+                    fit: BoxFit.fitWidth,
+                    alignment: Alignment.bottomCenter,
+                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  ),
+                ),
+
+                // Jalur putus-putus.
+                Positioned.fill(
+                  child: CustomPaint(painter: _DashedPathPainter(pts)),
+                ),
+
+                // Lingkaran level.
+                for (var i = 0; i < _slots.length; i++)
+                  Positioned(
+                    left: pts[i].dx - d / 2,
+                    top: pts[i].dy - d / 2,
+                    child: _LevelNode(
+                      diameter: d,
+                      state: i < _completed
+                          ? _NodeState.done
+                          : i == _completed
+                          ? _NodeState.current
+                          : _NodeState.locked,
+                      showStart: i == 0 && !_started && _completed == 0,
+                      onTap: () => _onNodeTap(i),
+                    ),
+                  ),
+
+                // Karakter Panji berdiri di level aktif.
+                if (_completed < _slots.length && (_started || _completed > 0))
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 900),
+                    curve: Curves.easeInOutCubic,
+                    left: pts[_completed].dx - d * 0.55,
+                    top: pts[_completed].dy - d * 1.0,
+                    width: d * 1.1,
+                    height: d * 1.3,
+                    child: IgnorePointer(
+                      child: _Bobbing(
+                        child: Image.asset(
+                          _panjiAsset,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) => Icon(
+                            Icons.person_rounded,
+                            size: d * 0.8,
+                            color: GameColors.forestDark,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                // Redupkan layar + pesan saat level terkunci ditekan.
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: _message == null,
+                    child: GestureDetector(
+                      onTap: () => setState(() => _message = null),
+                      child: AnimatedOpacity(
+                        opacity: _message == null ? 0 : 1,
+                        duration: const Duration(milliseconds: 200),
+                        child: Container(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          alignment: Alignment.topCenter,
+                          padding: EdgeInsets.only(top: h * 0.19),
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 24),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 12,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(22),
+                              border: Border.all(color: Colors.red, width: 2),
+                            ),
+                            child: Text(
+                              _message ?? '',
+                              textAlign: TextAlign.center,
+                              style: gameText(
+                                13,
+                                weight: FontWeight.w700,
+                                color: GameColors.forestDark,
+                              ),
                             ),
                           ),
                         ),
                       ),
                     ),
-                    // Peta level
-                    Align(
-                      alignment: Alignment.bottomCenter,
-                      child: SizedBox(
-                        width: 990 * s,
-                        height: 2150 * s,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            CustomPaint(
-                              size: Size(990 * s, 2150 * s),
-                              painter: _DashPainter(s),
-                            ),
-                            for (var i = 0; i < _levels.length; i++) ...[
-                              _levelDisc(s, i, done),
-                              if (i > done) _levelLabel(s, i),
-                            ],
-                            if (done < _levels.length && (done > 0 || _started))
-                              _panji(s, done),
-                            if (_hintLevel != null && _hintLevel! > done)
-                              _hintBubble(s, _hintLevel!, done),
-                          ],
-                        ),
-                      ),
+                  ),
+                ),
+
+                // Header selalu menempel di atas.
+                Align(
+                  alignment: Alignment.topCenter,
+                  child: SafeArea(
+                    bottom: false,
+                    child: GameHeader(
+                      title: 'Jejak Sang Panji',
+                      gems: _completed,
                     ),
-                    // Header
-                    SafeArea(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: Padding(
-                          padding: const EdgeInsets.only(top: 16),
-                          child: GameHeader(
-                            title: 'Jejak Sang Panji',
-                            score: done,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                );
-              },
+                  ),
+                ),
+              ],
             );
           },
         ),
       ),
     );
   }
+}
 
-  // Tulisan isi putih + garis tepi hijau
-  Widget _outlined(String text, double size, double stroke) {
+enum _NodeState { locked, current, done }
+
+class _LevelNode extends StatelessWidget {
+  const _LevelNode({
+    required this.diameter,
+    required this.state,
+    required this.showStart,
+    required this.onTap,
+  });
+
+  final double diameter;
+  final _NodeState state;
+  final bool showStart;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final locked = state == _NodeState.locked;
+    final depth = diameter * 0.06;
+    final top = locked ? GameColors.lockTop : GameColors.green;
+    final side = locked ? GameColors.lockSide : GameColors.forestDark;
+
+    Widget face;
+    if (locked) {
+      face = Icon(
+        Icons.lock_rounded,
+        size: diameter * 0.34,
+        color: GameColors.lockIcon,
+      );
+    } else if (state == _NodeState.done) {
+      face = Icon(
+        Icons.check_rounded,
+        size: diameter * 0.5,
+        color: Colors.white,
+      );
+    } else if (showStart) {
+      face = _StartLabel(size: diameter * 0.24);
+    } else {
+      face = const SizedBox.shrink();
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        width: diameter,
+        height: diameter + depth,
+        child: Stack(
+          children: [
+            Positioned(
+              top: depth,
+              child: Container(
+                width: diameter,
+                height: diameter,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: side,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      blurRadius: 14,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Container(
+              width: diameter,
+              height: diameter,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: top),
+              alignment: Alignment.center,
+              child: face,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Teks "Start" putih dengan garis tepi hijau.
+class _StartLabel extends StatelessWidget {
+  const _StartLabel({required this.size});
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final base = gameText(size, weight: FontWeight.w900);
     return Stack(
-      alignment: Alignment.center,
       children: [
         Text(
-          text,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: size,
-            fontWeight: FontWeight.w900,
-            height: 1.05,
+          'Start',
+          style: base.copyWith(
+            color: null,
             foreground: Paint()
               ..style = PaintingStyle.stroke
-              ..strokeWidth = stroke
-              ..color = AppColors.primary,
+              ..strokeWidth = size * 0.16
+              ..strokeJoin = StrokeJoin.round
+              ..color = const Color(0xFF3FA84A),
           ),
         ),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: size,
-            fontWeight: FontWeight.w900,
-            height: 1.05,
-            color: Colors.white,
-          ),
-        ),
+        Text('Start', style: base.copyWith(color: Colors.white)),
       ],
     );
   }
 }
 
-// Menggambar garis putus-putus hijau antar level
-class _DashPainter extends CustomPainter {
-  _DashPainter(this.s);
-  final double s;
-
-  static const _curves = [
-    [650.0, 1775.0, 940.0, 1640.0, 800.0, 1290.0, 430.0, 1380.0],
-    [265.0, 1205.0, 280.0, 1040.0, 470.0, 1080.0, 625.0, 1130.0],
-    [712.0, 908.0, 640.0, 860.0, 480.0, 895.0, 370.0, 882.0],
-    [310.0, 632.0, 400.0, 540.0, 470.0, 555.0, 562.0, 528.0],
-  ];
+/// Jalur lengkung putus-putus: level 1 -> 2 -> 3 -> 4 -> 5.
+class _DashedPathPainter extends CustomPainter {
+  _DashedPathPainter(this.p);
+  final List<Offset> p;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    final path = Path()..moveTo(p[0].dx, p[0].dy);
+    path.cubicTo(
+      w * 0.98,
+      p[0].dy - h * 0.03,
+      w * 0.98,
+      p[1].dy - h * 0.06,
+      p[1].dx,
+      p[1].dy,
+    );
+    path.cubicTo(
+      w * 0.22,
+      p[1].dy - h * 0.12,
+      w * 0.50,
+      p[2].dy,
+      p[2].dx,
+      p[2].dy,
+    );
+    path.cubicTo(
+      w * 0.62,
+      p[2].dy - h * 0.09,
+      w * 0.40,
+      p[3].dy + h * 0.03,
+      p[3].dx,
+      p[3].dy,
+    );
+    path.cubicTo(
+      w * 0.25,
+      p[3].dy - h * 0.07,
+      w * 0.50,
+      p[4].dy - h * 0.01,
+      p[4].dx,
+      p[4].dy,
+    );
+
     final paint = Paint()
-      ..color = AppColors.primary
+      ..color = GameColors.greenLine
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 7 * s
+      ..strokeWidth = 3.5
       ..strokeCap = StrokeCap.round;
 
-    for (final c in _curves) {
-      final path = Path()
-        ..moveTo(c[0] * s, c[1] * s)
-        ..cubicTo(c[2] * s, c[3] * s, c[4] * s, c[5] * s, c[6] * s, c[7] * s);
-      for (final m in path.computeMetrics()) {
-        for (double d = 0; d < m.length; d += 34 * s) {
-          canvas.drawPath(
-            m.extractPath(d, math.min(d + 18 * s, m.length)),
-            paint,
-          );
-        }
+    const dash = 6.0;
+    const gap = 9.0;
+    for (final m in path.computeMetrics()) {
+      var dist = 0.0;
+      while (dist < m.length) {
+        final end = (dist + dash).clamp(0.0, m.length).toDouble();
+        canvas.drawPath(m.extractPath(dist, end), paint);
+        dist += dash + gap;
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant _DashPainter old) => old.s != s;
+  bool shouldRepaint(covariant _DashedPathPainter old) => old.p != p;
 }
 
-// Bagian atas bebas (kepala & tangan boleh keluar lingkaran),
-// bagian bawah dipotong mengikuti bentuk lingkaran level.
-class _PanjiClipper extends CustomClipper<Path> {
-  _PanjiClipper(this.s);
-  final double s;
+/// Karakter naik-turun pelan dengan sedikit melar, supaya terlihat hidup.
+class _Bobbing extends StatefulWidget {
+  const _Bobbing({required this.child});
+  final Widget child;
 
   @override
-  Path getClip(Size size) {
-    final circle = Rect.fromCircle(
-      center: Offset(size.width / 2, 256 * s),
-      radius: 150 * s,
-    );
-    return Path.combine(
-      PathOperation.union,
-      Path()..addRect(Rect.fromLTWH(0, 0, size.width, 256 * s)),
-      Path()..addOval(circle),
-    );
+  State<_Bobbing> createState() => _BobbingState();
+}
+
+class _BobbingState extends State<_Bobbing>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+  late final Animation<double> _t = CurvedAnimation(
+    parent: _c,
+    curve: Curves.easeInOut,
+  );
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
   }
 
   @override
-  bool shouldReclip(covariant _PanjiClipper old) => old.s != s;
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _t,
+      child: widget.child,
+      builder: (_, child) => Transform.translate(
+        offset: Offset(0, -9 * _t.value),
+        child: Transform(
+          alignment: Alignment.bottomCenter,
+          transform: Matrix4.diagonal3Values(
+            1 - 0.015 * _t.value,
+            1 + 0.03 * _t.value,
+            1,
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
 }
