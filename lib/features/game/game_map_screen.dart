@@ -2,8 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'game_batik_screen.dart';
+import 'game_clues.dart';
 import 'game_data.dart';
+import 'game_fill_screen.dart';
+import 'game_final_clue_screen.dart';
+import 'game_levels.dart' hide GameMatchScreen, GameFillScreen, GameBatikScreen;
+import 'game_match_screen.dart';
 import 'game_order_screen.dart';
+import 'game_progress.dart';
 import 'game_quiz_screen.dart';
 import 'game_widgets.dart';
 
@@ -30,7 +37,10 @@ class _GameMapScreenState extends State<GameMapScreen> {
   static const _groundAsset = 'assets/images/map_ground.png';
   static const _panjiAsset = 'assets/images/ic_lock.png';
 
-  int _completed = 0;
+  /// Jumlah level yang sudah selesai (0-5). Sumber tunggal: GameProgress,
+  /// jadi peta selalu ikut berubah saat layar mana pun mencatat level selesai.
+  int get _completed => GameProgress.completed.value.clamp(0, _slots.length);
+
   bool _started = false;
   String? _message;
   int _messageToken = 0;
@@ -47,23 +57,38 @@ class _GameMapScreenState extends State<GameMapScreen> {
     setState(() => _started = true);
     final ok = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => index == 1
-            ? GameOrderScreen(gems: _completed)
-            : GameQuizScreen(
-                challenge: gameChallenges[index],
-                gems: _completed,
-              ),
+        builder: (_) => switch (index) {
+          1 => GameOrderScreen(gems: _completed),
+          2 => const GameMatchScreen(),
+          3 => const GameFillScreen(),
+          4 => const GameBatikScreen(),
+          _ => GameQuizScreen(
+            challenge: gameChallenges[index],
+            gems: _completed,
+          ),
+        },
       ),
     );
-    if (ok == true && mounted && _completed == index) {
-      setState(() => _completed++);
-    }
+    // Level (index + 1) selesai. Aman dipanggil dua kali.
+    if (ok == true) GameProgress.completeLevel(index + 1);
   }
 
   void _onNodeTap(int i) {
     if (i == _completed) {
       _openChallenge(i);
-    } else if (i > _completed) {
+    } else if (i < _completed) {
+      // Level yang sudah selesai: tampilkan clue-nya.
+      // Level 5 juga punya tombol untuk menebak jawaban akhir.
+      showClueSheet(
+        context,
+        i + 1,
+        onGuess: i == _slots.length - 1
+            ? () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const GameFinalClueScreen()),
+              )
+            : null,
+      );
+    } else {
       _showMessage(
         'Selesaikan Level ${_completed + 1} agar dapat membuka level ${i + 1}',
       );
@@ -72,134 +97,148 @@ class _GameMapScreenState extends State<GameMapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: GameBackground(
-        child: LayoutBuilder(
-          builder: (context, c) {
-            final w = c.maxWidth;
-            final h = c.maxHeight;
-            final d = (w * 0.32).clamp(0.0, h * 0.147).toDouble();
-            final pts = [for (final s in _slots) Offset(s.dx * w, s.dy * h)];
+    return ValueListenableBuilder<int>(
+      valueListenable: GameProgress.completed,
+      builder: (context, _, _) {
+        return Scaffold(
+          backgroundColor: Colors.white,
+          body: GameBackground(
+            child: LayoutBuilder(
+              builder: (context, c) {
+                final w = c.maxWidth;
+                final h = c.maxHeight;
+                final d = (w * 0.32).clamp(0.0, h * 0.147).toDouble();
+                final pts = [
+                  for (final s in _slots) Offset(s.dx * w, s.dy * h),
+                ];
 
-            return Stack(
-              fit: StackFit.expand,
-              children: [
-                // Rumput dari foto, menempel di bawah.
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Image.asset(
-                    _groundAsset,
-                    fit: BoxFit.fitWidth,
-                    alignment: Alignment.bottomCenter,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                  ),
-                ),
-
-                // Jalur putus-putus.
-                Positioned.fill(
-                  child: CustomPaint(painter: _DashedPathPainter(pts)),
-                ),
-
-                // Lingkaran level.
-                for (var i = 0; i < _slots.length; i++)
-                  Positioned(
-                    left: pts[i].dx - d / 2,
-                    top: pts[i].dy - d / 2,
-                    child: _LevelNode(
-                      diameter: d,
-                      state: i < _completed
-                          ? _NodeState.done
-                          : i == _completed
-                          ? _NodeState.current
-                          : _NodeState.locked,
-                      showStart: i == 0 && !_started && _completed == 0,
-                      onTap: () => _onNodeTap(i),
-                    ),
-                  ),
-
-                // Karakter Panji berdiri di level aktif.
-                if (_completed < _slots.length && (_started || _completed > 0))
-                  AnimatedPositioned(
-                    duration: const Duration(milliseconds: 900),
-                    curve: Curves.easeInOutCubic,
-                    left: pts[_completed].dx - d * 0.55,
-                    top: pts[_completed].dy - d * 1.0,
-                    width: d * 1.1,
-                    height: d * 1.3,
-                    child: IgnorePointer(
-                      child: _Bobbing(
-                        child: Image.asset(
-                          _panjiAsset,
-                          fit: BoxFit.contain,
-                          errorBuilder: (_, _, _) => Icon(
-                            Icons.person_rounded,
-                            size: d * 0.8,
-                            color: GameColors.forestDark,
-                          ),
-                        ),
+                return Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    // Rumput dari foto, menempel di bawah.
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: Image.asset(
+                        _groundAsset,
+                        fit: BoxFit.fitWidth,
+                        alignment: Alignment.bottomCenter,
+                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),
                     ),
-                  ),
 
-                // Redupkan layar + pesan saat level terkunci ditekan.
-                Positioned.fill(
-                  child: IgnorePointer(
-                    ignoring: _message == null,
-                    child: GestureDetector(
-                      onTap: () => setState(() => _message = null),
-                      child: AnimatedOpacity(
-                        opacity: _message == null ? 0 : 1,
-                        duration: const Duration(milliseconds: 200),
-                        child: Container(
-                          color: Colors.black.withValues(alpha: 0.5),
-                          alignment: Alignment.topCenter,
-                          padding: EdgeInsets.only(top: h * 0.19),
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 24),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 18,
-                              vertical: 12,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(22),
-                              border: Border.all(color: Colors.red, width: 2),
-                            ),
-                            child: Text(
-                              _message ?? '',
-                              textAlign: TextAlign.center,
-                              style: gameText(
-                                13,
-                                weight: FontWeight.w700,
+                    // Jalur putus-putus.
+                    Positioned.fill(
+                      child: CustomPaint(painter: _DashedPathPainter(pts)),
+                    ),
+
+                    // Lingkaran level.
+                    for (var i = 0; i < _slots.length; i++)
+                      Positioned(
+                        left: pts[i].dx - d / 2,
+                        top: pts[i].dy - d / 2,
+                        child: _LevelNode(
+                          diameter: d,
+                          level: i + 1,
+                          state: i < _completed
+                              ? _NodeState.done
+                              : i == _completed
+                              ? _NodeState.current
+                              : _NodeState.locked,
+                          showStart: i == 0 && !_started && _completed == 0,
+                          onTap: () => _onNodeTap(i),
+                        ),
+                      ),
+
+                    // Karakter Panji berdiri di level aktif.
+                    if (_completed < _slots.length &&
+                        (_started || _completed > 0))
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 900),
+                        curve: Curves.easeInOutCubic,
+                        left: pts[_completed].dx - d * 0.55,
+                        top: pts[_completed].dy - d * 1.0,
+                        width: d * 1.1,
+                        height: d * 1.3,
+                        child: IgnorePointer(
+                          child: _Bobbing(
+                            child: Image.asset(
+                              _panjiAsset,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, _, _) => Icon(
+                                Icons.person_rounded,
+                                size: d * 0.8,
                                 color: GameColors.forestDark,
                               ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                ),
 
-                // Header selalu menempel di atas.
-                Align(
-                  alignment: Alignment.topCenter,
-                  child: SafeArea(
-                    bottom: false,
-                    child: GameHeader(
-                      title: 'Jejak Sang Panji',
-                      gems: _completed,
+                    // Redupkan layar + pesan saat level terkunci ditekan.
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        ignoring: _message == null,
+                        child: GestureDetector(
+                          onTap: () => setState(() => _message = null),
+                          child: AnimatedOpacity(
+                            opacity: _message == null ? 0 : 1,
+                            duration: const Duration(milliseconds: 200),
+                            child: Container(
+                              color: Colors.black.withValues(alpha: 0.5),
+                              alignment: Alignment.topCenter,
+                              padding: EdgeInsets.only(top: h * 0.19),
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 18,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(22),
+                                  border: Border.all(
+                                    color: Colors.red,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: Text(
+                                  _message ?? '',
+                                  textAlign: TextAlign.center,
+                                  style: gameText(
+                                    13,
+                                    weight: FontWeight.w700,
+                                    color: GameColors.forestDark,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
-      ),
+
+                    // Header selalu menempel di atas.
+                    Align(
+                      alignment: Alignment.topCenter,
+                      child: SafeArea(
+                        bottom: false,
+                        child: GameHeader(
+                          title: 'Jejak Sang Panji',
+                          gems: _completed,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -209,12 +248,14 @@ enum _NodeState { locked, current, done }
 class _LevelNode extends StatelessWidget {
   const _LevelNode({
     required this.diameter,
+    required this.level,
     required this.state,
     required this.showStart,
     required this.onTap,
   });
 
   final double diameter;
+  final int level;
   final _NodeState state;
   final bool showStart;
   final VoidCallback onTap;
@@ -234,10 +275,9 @@ class _LevelNode extends StatelessWidget {
         color: GameColors.lockIcon,
       );
     } else if (state == _NodeState.done) {
-      face = Icon(
-        Icons.check_rounded,
-        size: diameter * 0.5,
-        color: Colors.white,
+      face = _StartLabel(
+        size: diameter * 0.125,
+        text: 'Level $level\nComplete',
       );
     } else if (showStart) {
       face = _StartLabel(size: diameter * 0.24);
@@ -286,8 +326,9 @@ class _LevelNode extends StatelessWidget {
 
 /// Teks "Start" putih dengan garis tepi hijau.
 class _StartLabel extends StatelessWidget {
-  const _StartLabel({required this.size});
+  const _StartLabel({required this.size, this.text = 'Start'});
   final double size;
+  final String text;
 
   @override
   Widget build(BuildContext context) {
@@ -295,7 +336,8 @@ class _StartLabel extends StatelessWidget {
     return Stack(
       children: [
         Text(
-          'Start',
+          text,
+          textAlign: TextAlign.center,
           style: base.copyWith(
             color: null,
             foreground: Paint()
@@ -305,7 +347,11 @@ class _StartLabel extends StatelessWidget {
               ..color = const Color(0xFF3FA84A),
           ),
         ),
-        Text('Start', style: base.copyWith(color: Colors.white)),
+        Text(
+          text,
+          textAlign: TextAlign.center,
+          style: base.copyWith(color: Colors.white),
+        ),
       ],
     );
   }

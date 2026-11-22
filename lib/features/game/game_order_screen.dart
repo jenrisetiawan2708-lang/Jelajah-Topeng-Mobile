@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/dark_button.dart';
 import '../../shared/widgets/dark_card.dart';
 import '../../shared/widgets/gradient_background.dart';
+import '../progress/progress_screen.dart' show LevelProgress;
 import 'game_clue_screen.dart';
 import 'game_header.dart';
 
@@ -113,6 +114,8 @@ class _GameOrderScreenState extends State<GameOrderScreen>
         _filled++;
         _flyCard = null;
       });
+      // Kirim progres level 2 (indeks 1) ke halaman Progres: 1/5, 2/5, ... 5/5.
+      LevelProgress.set(1, _filled / 5);
     } else {
       // SALAH: kartu bergetar
       setState(() => _shakeCard = i);
