@@ -31,14 +31,21 @@ class ApiClient {
 
   static const _timeout = Duration(seconds: 15);
 
-  Future<dynamic> get(String path) => _send('GET', path);
-  Future<dynamic> post(String path, {Object? body}) =>
-      _send('POST', path, body: body);
-  Future<dynamic> patch(String path, {Object? body}) =>
-      _send('PATCH', path, body: body);
-  Future<dynamic> delete(String path) => _send('DELETE', path);
+  Future<dynamic> get(String path, {Duration? timeout}) =>
+      _send('GET', path, timeout: timeout);
+  Future<dynamic> post(String path, {Object? body, Duration? timeout}) =>
+      _send('POST', path, body: body, timeout: timeout);
+  Future<dynamic> patch(String path, {Object? body, Duration? timeout}) =>
+      _send('PATCH', path, body: body, timeout: timeout);
+  Future<dynamic> delete(String path, {Duration? timeout}) =>
+      _send('DELETE', path, timeout: timeout);
 
-  Future<dynamic> _send(String method, String path, {Object? body}) async {
+  Future<dynamic> _send(
+    String method,
+    String path, {
+    Object? body,
+    Duration? timeout,
+  }) async {
     final uri = Uri.parse('${ApiConfig.api}$path');
     final token = await TokenStorage.read();
     final req = http.Request(method, uri)
@@ -51,7 +58,7 @@ class ApiClient {
 
     http.Response res;
     try {
-      final streamed = await req.send().timeout(_timeout);
+      final streamed = await req.send().timeout(timeout ?? _timeout);
       res = await http.Response.fromStream(streamed);
     } on TimeoutException {
       throw ApiException('Server tidak merespons. Coba lagi.');

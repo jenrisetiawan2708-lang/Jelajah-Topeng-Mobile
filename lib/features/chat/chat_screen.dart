@@ -1,13 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+
+import '../../core/api/ai_service.dart';
+import '../../core/api/api_client.dart';
 import '../../core/theme/app_colors.dart';
 import '../../shared/widgets/gradient_background.dart';
 
 class _Msg {
-  const _Msg({required this.fromUser, required this.text, this.source});
+  const _Msg({
+    required this.fromUser,
+    required this.text,
+    this.source,
+    this.confidence,
+    this.isError = false,
+  });
   final bool fromUser;
   final String text;
   final String? source;
+  final String? confidence; // tinggi | sedang | rendah
+  final bool isError;
 }
 
 class ChatScreen extends StatefulWidget {
@@ -31,8 +42,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<_Msg> _messages = [
     const _Msg(
       fromUser: false,
-      text:
-          'Halo! Aku asisten Jelajah Topeng. Tanya apa saja tentang kampung, tiket, atau cerita topeng.',
+      text: 'Halo! Aku asisten Jelajah Topeng. Tanya apa saja tentang kampung, tiket, atau cerita topeng.',
     ),
   ];
   bool _typing = false;
@@ -42,37 +52,6 @@ class _ChatScreenState extends State<ChatScreen> {
     _ctrl.dispose();
     _scroll.dispose();
     super.dispose();
-  }
-
-  // TODO: ganti dengan panggilan POST /api/ai/ask ke backend.
-  ({String text, String? source}) _answer(String q) {
-    final t = q.toLowerCase();
-    if (t.contains('parkir')) {
-      return (
-        text:
-            'Parkir motor dan mobil tersedia di halaman Kampung Budaya Polowijen. Dari area parkir ke lokasi cukup berjalan kaki sekitar 2 menit.',
-        source: 'FAQ • Fasilitas',
-      );
-    }
-    if (t.contains('jam') || t.contains('kunjungan')) {
-      return (
-        text:
-            'Paket Medayoh berlangsung hari Sabtu pukul 13.00–17.00 WIB. Jadwal paket lain bisa kamu lihat saat memilih tanggal di menu Tiket.',
-        source: 'Tiket • Paket Medayoh',
-      );
-    }
-    if (t.contains('mbah reni')) {
-      return (
-        text:
-            'Mbah Reni adalah salah satu tokoh penting dalam sejarah seni budaya Polowijen, khususnya dalam perkembangan Topeng Malangan.',
-        source: 'Materi 1 • Mbah Reni',
-      );
-    }
-    return (
-      text:
-          'Maaf, aku belum punya jawaban untuk itu. Coba tanyakan tentang kampung, tiket, atau cerita topeng.',
-      source: null,
-    );
   }
 
   void _scrollToEnd() {
@@ -86,9 +65,11 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  void _send([String? preset]) {
+  /// Kirim pertanyaan ke backend (POST /api/ai/ask).
+  Future<void> _send([String? preset]) async {
     final text = (preset ?? _ctrl.text).trim();
     if (text.isEmpty || _typing) return;
+
     setState(() {
       _messages.add(_Msg(fromUser: true, text: text));
       _typing = true;
@@ -96,15 +77,31 @@ class _ChatScreenState extends State<ChatScreen> {
     _ctrl.clear();
     _scrollToEnd();
 
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (!mounted) return;
-      final a = _answer(text);
-      setState(() {
-        _typing = false;
-        _messages.add(_Msg(fromUser: false, text: a.text, source: a.source));
-      });
-      _scrollToEnd();
+    _Msg reply;
+    try {
+      final a = await AiService.ask(text);
+      reply = _Msg(
+        fromUser: false,
+        text: a.answer,
+        source: a.references.isEmpty ? null : a.references.join(' • '),
+        confidence: a.confidence,
+      );
+    } on ApiException catch (e) {
+      reply = _Msg(fromUser: false, text: e.message, isError: true);
+    } catch (_) {
+      reply = const _Msg(
+        fromUser: false,
+        text: 'Terjadi kesalahan. Coba lagi sebentar lagi.',
+        isError: true,
+      );
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _typing = false;
+      _messages.add(reply);
     });
+    _scrollToEnd();
   }
 
   @override
@@ -151,7 +148,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 shape: BoxShape.circle,
                 color: Colors.white.withValues(alpha: 0.85),
               ),
-              child: const Icon(Icons.chevron_left, size: 28, color: Colors.black),
+              child: const Icon(
+                Icons.chevron_left,
+                size: 28,
+                color: Colors.black,
+              ),
             ),
           ),
           Expanded(
@@ -182,7 +183,10 @@ class _ChatScreenState extends State<ChatScreen> {
             GestureDetector(
               onTap: () => _send(s),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(18),
@@ -206,6 +210,13 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildBubble(BuildContext context, _Msg m) {
     final maxW = MediaQuery.of(context).size.width * 0.78;
     final user = m.fromUser;
+    final bg = user
+        ? _dark
+        : (m.isError ? const Color(0xFFFBE9E7) : Colors.white);
+    final fg = user
+        ? Colors.white
+        : (m.isError ? const Color(0xFFB3261E) : Colors.black87);
+
     return Align(
       alignment: user ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -213,7 +224,7 @@ class _ChatScreenState extends State<ChatScreen> {
         margin: const EdgeInsets.only(top: 10),
         padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
         decoration: BoxDecoration(
-          color: user ? _dark : Colors.white,
+          color: bg,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(18),
             topRight: const Radius.circular(18),
@@ -238,7 +249,7 @@ class _ChatScreenState extends State<ChatScreen> {
               style: GoogleFonts.plusJakartaSans(
                 fontSize: 13,
                 height: 1.35,
-                color: user ? Colors.white : Colors.black87,
+                color: fg,
               ),
             ),
             if (m.source != null) ...[
@@ -248,6 +259,20 @@ class _ChatScreenState extends State<ChatScreen> {
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 11,
                   color: AppColors.grey,
+                ),
+              ),
+            ],
+            if (m.confidence != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                m.confidence == 'rendah'
+                    ? 'Keyakinan rendah, jawaban ini mungkin kurang akurat.'
+                    : 'Keyakinan: ${m.confidence}',
+                style: GoogleFonts.plusJakartaSans(
+                  fontSize: 10.5,
+                  color: m.confidence == 'rendah'
+                      ? const Color(0xFFB3261E)
+                      : AppColors.grey,
                 ),
               ),
             ],
@@ -267,12 +292,23 @@ class _ChatScreenState extends State<ChatScreen> {
           color: Colors.white,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Text(
-          'Sedang mengetik...',
-          style: GoogleFonts.plusJakartaSans(
-            fontSize: 12,
-            color: AppColors.grey,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'AI sedang mencari jawaban...',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                color: AppColors.grey,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -297,6 +333,13 @@ class _ChatScreenState extends State<ChatScreen> {
                   Expanded(
                     child: TextField(
                       controller: _ctrl,
+                      maxLength: 500,
+                      buildCounter: (
+                        _, {
+                        required currentLength,
+                        required isFocused,
+                        maxLength,
+                      }) => null,
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => _send(),
                       style: GoogleFonts.plusJakartaSans(fontSize: 14),
@@ -317,15 +360,22 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           const SizedBox(width: 10),
           GestureDetector(
-            onTap: _send,
-            child: Container(
-              width: 50,
-              height: 50,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: _sendGreen,
+            onTap: () => _send(),
+            child: Opacity(
+              opacity: _typing ? 0.5 : 1,
+              child: Container(
+                width: 50,
+                height: 50,
+                decoration: const BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _sendGreen,
+                ),
+                child: const Icon(
+                  Icons.send_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
               ),
-              child: const Icon(Icons.send_rounded, color: Colors.white, size: 22),
             ),
           ),
         ],

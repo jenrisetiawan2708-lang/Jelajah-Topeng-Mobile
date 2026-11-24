@@ -214,6 +214,7 @@ class _GameFinalClueScreenState extends State<GameFinalClueScreen> {
     return Scaffold(
       backgroundColor: _G.bgTop,
       body: _GameBg(
+        celebrate: true,
         child: Column(
           children: [
             const _TopBar(title: 'Jejak Sang Panji'),

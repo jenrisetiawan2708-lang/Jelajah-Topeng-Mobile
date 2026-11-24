@@ -1,8 +1,10 @@
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+
 import '../flow_widgets.dart';
 import 'booking_data.dart';
 import 'payment_qr_screen.dart';
@@ -12,23 +14,27 @@ class PaymentResultScreen extends StatelessWidget {
     super.key,
     required this.data,
     required this.success,
+    this.orderId,
   });
 
   final BookingData data;
   final bool success;
 
-  static const _trx = 'TRX-241026-001';
+  /// Nomor transaksi dari backend (Midtrans).
+  final String? orderId;
+
+  String get _trx => (orderId == null || orderId!.isEmpty) ? '-' : orderId!;
 
   // Membuat PDF tiket lalu membuka share sheet (simpan / kirim)
-  static Future<void> _download(BookingData d) async {
+  static Future<void> _download(BookingData d, String trx) async {
     final doc = pw.Document();
     pw.Widget line(String t, double s, {bool bold = false}) => pw.Text(
-          t,
-          style: pw.TextStyle(
-            fontSize: s,
-            fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
-          ),
-        );
+      t,
+      style: pw.TextStyle(
+        fontSize: s,
+        fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+      ),
+    );
     doc.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a5,
@@ -39,7 +45,9 @@ class PaymentResultScreen extends StatelessWidget {
             pw.SizedBox(height: 6),
             line('Kampung Budaya Polowijen', 24, bold: true),
             pw.SizedBox(height: 20),
-            line('Nomor transaksi: $_trx', 14),
+            line('Paket: ${d.package.name}', 14),
+            pw.SizedBox(height: 6),
+            line('Nomor transaksi: $trx', 14),
             pw.SizedBox(height: 6),
             line('Tanggal kunjungan: ${dateId(d.date)}', 14),
             pw.SizedBox(height: 6),
@@ -77,7 +85,7 @@ class PaymentResultScreen extends StatelessWidget {
               text: 'Download Tiket',
               icon: Icons.file_download_outlined,
               height: 52,
-              onTap: () => _download(d),
+              onTap: () => _download(d, _trx),
             )
           : FlowButton(
               text: 'Coba Bayar Lagi',
@@ -95,19 +103,22 @@ class PaymentResultScreen extends StatelessWidget {
               shape: BoxShape.circle,
               color: success ? FC.button : FC.redDark,
             ),
-            child: Icon(success ? Icons.check : Icons.close,
-                color: Colors.white, size: 50),
+            child: Icon(
+              success ? Icons.check : Icons.close,
+              color: Colors.white,
+              size: 50,
+            ),
           ),
         ),
         Column(
           children: [
-            Text(success ? 'Pembayaran Berhasil' : 'Pembayaran Gagal',
-                style: jk(21, w: FontWeight.w800, c: FC.dark)),
+            Text(
+              success ? 'Pembayaran Berhasil' : 'Pembayaran Gagal',
+              style: jk(21, w: FontWeight.w800, c: FC.dark),
+            ),
             const SizedBox(height: 4),
             Text(
-              success
-                  ? 'Tiket kamu sudah aktif'
-                  : 'Waktu pembayaran telah habis. Silakan coba lagi untuk melanjutkan pesananmu.',
+              success ? 'Tiket kamu sudah aktif' : 'Pembayaran tidak selesai atau waktunya habis. Silakan coba lagi untuk melanjutkan pesananmu.',
               textAlign: TextAlign.center,
               style: jk(11.5, c: const Color(0xFF555555)),
             ),
@@ -122,21 +133,25 @@ class PaymentResultScreen extends StatelessWidget {
                 Text('Rincian Transaksi', style: jk(15, w: FontWeight.w800)),
                 if (!success)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFFFBE9E7),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text('Gagal',
-                        style: jk(10, w: FontWeight.w800, c: FC.redDark)),
+                    child: Text(
+                      'Gagal',
+                      style: jk(10, w: FontWeight.w800, c: FC.redDark),
+                    ),
                   ),
               ],
             ),
             const SizedBox(height: 8),
-            const KV('Nomor transaksi', _trx),
+            KV('Nomor transaksi', _trx),
             KV('Tanggal transaksi', today),
-            const KV('Metode pembayaran', 'QRIS'),
+            const KV('Metode pembayaran', 'Midtrans'),
             if (success)
               const KV('Status pembayaran', 'Berhasil', valueColor: FC.button),
             const FlowLine(),
@@ -144,8 +159,10 @@ class PaymentResultScreen extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Total bayar', style: jk(12)),
-                Text(rupiah(d.total),
-                    style: jk(21, w: FontWeight.w800, c: FC.dark)),
+                Text(
+                  rupiah(d.total),
+                  style: jk(21, w: FontWeight.w800, c: FC.dark),
+                ),
               ],
             ),
           ],
