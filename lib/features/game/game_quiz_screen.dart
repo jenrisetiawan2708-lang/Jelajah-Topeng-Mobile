@@ -342,15 +342,29 @@ class _HintBox extends StatelessWidget {
 /// konfeti jatuh, lalu teks dan tombol Next menyusul.
 class ClueReveal extends StatefulWidget {
   const ClueReveal({
+    super.key,
     required this.image,
     required this.text,
     required this.clueNumber,
     required this.onNext,
+    this.title,
+    this.badgeText,
+    this.buttonText = 'Next',
+    this.textBold = true,
   });
+
   final String image;
   final String text;
   final int clueNumber;
   final VoidCallback onNext;
+
+  /// Judul besar di atas teks (opsional).
+  final String? title;
+
+  /// null = "Clue N terbuka!", '' = sembunyikan lencana.
+  final String? badgeText;
+  final String buttonText;
+  final bool textBold;
 
   @override
   State<ClueReveal> createState() => _ClueRevealState();
@@ -431,52 +445,55 @@ class _ClueRevealState extends State<ClueReveal> with TickerProviderStateMixin {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ScaleTransition(
-                  scale: badge,
-                  child: FadeTransition(
-                    opacity: _iv(0.15, 0.4),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 9,
-                      ),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFFD86B), Color(0xFFF2B63C)],
+                if (widget.badgeText != '') ...[
+                  ScaleTransition(
+                    scale: badge,
+                    child: FadeTransition(
+                      opacity: _iv(0.15, 0.4),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 9,
                         ),
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFF2B63C)
-                                .withValues(alpha: 0.5),
-                            blurRadius: 14,
-                            offset: const Offset(0, 5),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFD86B), Color(0xFFF2B63C)],
                           ),
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.lock_open_rounded,
-                            size: 18,
-                            color: GameColors.forestDark,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Clue ${widget.clueNumber} terbuka!',
-                            style: gameText(
-                              14,
-                              weight: FontWeight.w800,
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFFF2B63C)
+                                  .withValues(alpha: 0.5),
+                              blurRadius: 14,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.lock_open_rounded,
+                              size: 18,
                               color: GameColors.forestDark,
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            Text(
+                              widget.badgeText ??
+                                  'Clue ${widget.clueNumber} terbuka!',
+                              style: gameText(
+                                14,
+                                weight: FontWeight.w800,
+                                color: GameColors.forestDark,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 8),
+                  const SizedBox(height: 8),
+                ],
                 SizedBox(
                   width: 340,
                   height: 340,
@@ -537,10 +554,29 @@ class _ClueRevealState extends State<ClueReveal> with TickerProviderStateMixin {
                       begin: const Offset(0, 0.25),
                       end: Offset.zero,
                     ).animate(text),
-                    child: Text(
-                      widget.text,
-                      textAlign: TextAlign.center,
-                      style: gameText(17, weight: FontWeight.w800, height: 1.3),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.title != null) ...[
+                          Text(
+                            widget.title!,
+                            textAlign: TextAlign.center,
+                            style: gameText(22, weight: FontWeight.w900),
+                          ),
+                          const SizedBox(height: 4),
+                        ],
+                        Text(
+                          widget.text,
+                          textAlign: TextAlign.center,
+                          style: gameText(
+                            widget.textBold ? 17 : 15,
+                            weight: widget.textBold
+                                ? FontWeight.w800
+                                : FontWeight.w500,
+                            height: 1.3,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -550,8 +586,8 @@ class _ClueRevealState extends State<ClueReveal> with TickerProviderStateMixin {
                   child: ScaleTransition(
                     scale: button,
                     child: GameButton(
-                      text: 'Next',
-                      width: 150,
+                      text: widget.buttonText,
+                      width: 170,
                       onPressed: widget.onNext,
                     ),
                   ),
@@ -718,7 +754,7 @@ class _ClueImageState extends State<_ClueImage> {
                         Padding(
                           padding: const EdgeInsets.only(top: 8),
                           child: Text(
-                            'maks_clue.png tidak ditemukan di aset',
+                            'Gambar clue tidak ditemukan di aset',
                             textAlign: TextAlign.center,
                             style: gameText(11, color: Colors.red),
                           ),

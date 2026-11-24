@@ -37,7 +37,7 @@ const gameChallenges = <GameChallenge>[
     clue: 'AKU MENYEMBUNYIKAN WAJAH, NAMUN MENGUNGKAPKAN KARAKTER',
     clueImage: 'assets/images/maks_clue.png',
   ),
-  // TODO: tantangan 2-5 (ganti judul, audio, soal, dan clue sesuai materi).
+  
   GameChallenge(
     title: 'Lokasi 2',
     audioAsset: 'audio/kisah_mbah_reni.mp3',

@@ -5,8 +5,19 @@ import '../../core/api/payment_service.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/theme/app_text.dart';
 import 'booking/booking_data.dart' show monthsShortId;
-import 'flow_widgets.dart' show rupiah;
 import 'refund/ticket_detail_screen.dart';
+
+/// Format rupiah: 120000 -> Rp120.000
+String rupiah(num amount) {
+  final s = amount.round().toString();
+  final buf = StringBuffer();
+  for (var i = 0; i < s.length; i++) {
+    final left = s.length - i;
+    buf.write(s[i]);
+    if (left > 1 && left % 3 == 1) buf.write('.');
+  }
+  return 'Rp$buf';
+}
 
 /// Isi tab "Riwayat Pesanan". Data dari GET /api/payments/mine.
 class TicketHistoryView extends StatefulWidget {

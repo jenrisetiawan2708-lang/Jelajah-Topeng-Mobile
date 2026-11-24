@@ -4,7 +4,7 @@ import '../../../shared/widgets/dark_button.dart';
 import '../../education/edu_header.dart';
 import '../flow_widgets.dart';
 import 'booking_data.dart';
-import '../ticket_history_view.dart';
+import '../ticket_history_view.dart' hide rupiah;
 import 'pick_date_screen.dart';
 
 enum _TiketView { pesan, riwayat }
